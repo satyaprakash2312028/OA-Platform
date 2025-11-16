@@ -6,7 +6,6 @@ const teamSchema = new Schema({
     type: String,
     required: [true, 'Team name is required'],
     trim: true,
-    unique: true
   },
   leader: {
     type: Schema.Types.ObjectId,
@@ -20,7 +19,7 @@ const teamSchema = new Schema({
   }
 }, { timestamps: true }); // Adds createdAt, updatedAt
 
-
+teamSchema.index({ name: 1, assessment: 1 }, { unique: true });
 const Team = model('Team', teamSchema);
 
 module.exports = {Team}; // Or { Team }
