@@ -5,6 +5,7 @@ const {cloudinary} = require("../lib/cloudinary.js");
 const {Assessment} = require("../models/assessment.model.js");
 const {Registration} = require("../models/registration.model.js");
 const {Team} = require("../models/team.model.js");
+const { mongoose } = require("mongoose");
 
 const register = async(req, res) => {
     try{
@@ -36,7 +37,7 @@ const register = async(req, res) => {
                 return res.status(400).json({ message: "Team name already exists. Please choose a different name or join existing team." });
             }
         }else{
-            console.log("Hi");
+            if(!mongoose.Types.ObjectId.isValid(existingTeamID)) return res.status(400).json({ message: "Team ID is wrong." });
             const team = await Team.findById(existingTeamID);
             if(!team) return res.status(400).json({ message: "Team ID is wrong." });
             const memeberCount = await Registration.find({team:existingTeamID});

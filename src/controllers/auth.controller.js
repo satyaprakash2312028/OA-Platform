@@ -57,7 +57,9 @@ const signup = async (req, res) => {
                     expiresAt: newUser.otp.expiresAt,
                     nextResendAttempt: newUser.otp.nextResendAttempt,
                     verificationAttemptsLeft: newUser.otp.verificationAttemptsLeft
-                }
+                },
+                createdAt: newUser.createdAt,
+                updatedAt: newUser.updatedAt
             });
         } else {
             return res.status(400).json({ message: "User creation failed" });
@@ -75,12 +77,15 @@ const login = async (req, res) => {
         const user = await User.findOne({ email });
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(400).json({ message: "Invalid login credentials" });
         generateToken(user._id, res);
+        req.user = user; // Set the user in the request object for caching in middleware
         res.status(200).json({
             _id: user._id,
             fullName: user.fullName,
             email,
             profilePic: user.profilePic,
-            isVerified: user.isVerified
+            isVerified: user.isVerified,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
         });
     } catch (error) {
         console.log("Error in login controller ", error);
@@ -130,7 +135,9 @@ const checkAuth = async (req, res) => {
                 resendAttemptsCount: user.otp.resendAttemptsCount,
                 nextResendAttempt: user.otp.nextResendAttempt,
                 verificationAttemptsLeft: user.otp.verificationAttemptsLeft
-            }
+            },
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
         });
     } catch (error) {
         console.log("Error occoured while checking user authorization ", error);
@@ -145,7 +152,9 @@ const checkVerified = async (req, res) => {
             fullName: user.fullName,
             email: user.email,
             profilePic: user.profilePic,
-            isVerified: user.isVerified
+            isVerified: user.isVerified,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
         });
    } catch (error) {
         console.log("Error in checkVerified controller", error);

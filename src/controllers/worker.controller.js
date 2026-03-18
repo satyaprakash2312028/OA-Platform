@@ -5,7 +5,9 @@ const {io, getReceiverSocketId}  = require('../lib/socket.js');
 
 const getJudgeVedict = async(req, res) => {
     try{
+        req.user = { _id: req.body.userId }; // Set the user in the request object for caching in middleware
         const {submissionId, verdict, executionTime, memoryUsed, status} = req.body;
+        console.log("Received judge verdict for submissionId:", req.body);
         console.log(verdict);
         const submission = await Submission.findByIdAndUpdate(submissionId, {
             status: verdict,
@@ -15,7 +17,7 @@ const getJudgeVedict = async(req, res) => {
         if(!submission) return res.status(404).json({message: "Submission not found"});
         const userSocketId = getReceiverSocketId(submission.user);
         if(userSocketId){
-            io.to(userSocketId).emit("statusUpdate", {submissionId, verdict});
+            io.to(userSocketId).emit("statusUpdate", {submissionId, verdict, status});
         }
         // Update team score if submission is accepted and linked to an assessment
         if(submission.assesment&&(verdict==="Accepted")){
@@ -44,13 +46,13 @@ const getJudgeVedict = async(req, res) => {
 
 const getStatus = async(req, res) => {
     try{
-        const {submissionId, status} = req.body;
+        const {submissionId, status, verdict} = req.body;
         const submission = await Submission.findById(submissionId);
         if(!submission) return res.status(404).json({message: "Submission not found"});
         const userId = submission.user;
         const userSocketId = getReceiverSocketId(userId);
         if(userSocketId){
-            io.to(userSocketId).emit("statusUpdate", {submissionId, status});
+            io.to(userSocketId).emit("statusUpdate", {submissionId, status, verdict});
         }
         res.status(200).json({message: "Status update sent successfully"});
     }catch(error){

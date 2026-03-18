@@ -11,6 +11,9 @@ const {generateAdminToken} = require("../lib/utils.js");
 const { User } = require("../models/user.model.js");
 const { Test } = require("../models/test.model.js");
 const bcrypt = require("bcryptjs");
+const {createProblemSchema} = require("../validators/problem.schema.js");
+const {createAssessmentSchema} = require("../validators/assessment.schema.js");
+const pageSize = 25;
 
 const rejudge = async(req, res) =>{
     try{
@@ -43,6 +46,7 @@ const login = async (req, res) => {
             httpOnly: true    // <-- Good practice to include this too
         });
         generateAdminToken(user._id, res);
+        req.user = user; // Set the user in the request object for caching in middleware
         res.status(200).json({
             _id: user._id,
             fullName: user.fullName,
@@ -77,6 +81,25 @@ const uploadProblem = async(req, res) =>{
     try{
         const { name, timeLimit, memoryLimit, htmlDescription, isPrivate, interactor, checker, assessment, zipFilePath, problemId } = req.body;
         // check with zod
+        const problemData = {
+            body: {
+                name,
+                timeLimit,
+                memoryLimit,
+                htmlDescription,
+                isPrivate,
+                interactor,
+                checker,
+                assessment,
+                problemId
+            }
+        };
+         // Debug log to check incoming data
+        const validation = createProblemSchema.safeParse(problemData);
+        if (!validation.success) {
+            console.log("Received problem data:", validation);
+            return res.status(400).json({ message: "Invalid problem data", errors: validation.error.flatten() });
+        }
         const newProblem = new Problem({
             problemId,
             name,
@@ -86,14 +109,15 @@ const uploadProblem = async(req, res) =>{
             isPrivate,
             interactor,
             checker,
-            assessment
+            assessment,
+            
         });
         if(newProblem) await newProblem.save();
         else return res.status(400).json({message: "Problem Creation failed."});
         // todo: actual upload of zipfile to be handeled by frontEnd
         const newTest = new Test({
             problem: newProblem._id,
-            path: zipFilePath
+            path: "zipFilePath" // <-- This should be the actual path where the zip file is stored after upload
         });
         if(newTest) await newTest.save();
         else res.status(400).json({message: "Test upload failed"});
@@ -108,6 +132,20 @@ const uploadProblem = async(req, res) =>{
 const startOA = async(req, res) =>{
     const {startTime, endTime, description, title, maxTeamSize} = req.body;
     // check with zod
+    const assessmentData = {
+        body: {
+            startTime,
+            endTime,
+            description,
+            title,
+            maxTeamSize
+        }
+    };
+    const validation = createAssessmentSchema.safeParse(assessmentData);
+    if (!validation.success) {
+        return res.status(400).json({ message: "Invalid assessment data", errors: validation.error.flatten() });
+    }
+
     const newAssessment = new Assessment({
         startTime,
         endTime,
@@ -123,6 +161,7 @@ const startOA = async(req, res) =>{
 const uploadMcq = async(req, res)=>{
     const {question, options, correctAnswerIndex, explanation, assessment} = req.body;
     // check with zod
+
     const newMcq = new Mcq({
         question,
         options,

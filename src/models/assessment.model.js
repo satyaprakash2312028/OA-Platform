@@ -29,18 +29,12 @@ const assessmentSchema = new Schema({
     },
     index: true,
   },
-  // Specific duration in minutes allowed per participant after they start
   
   maxTeamSize: {
     type: Number,
     min: 1,
     max: 5,
     default: 1,
-    validate: { // Only require maxTeamSize > 1 if teams are allowed
-      validator: function(value) {
-        return value >= this.min && value <= this.max;
-      }
-    }
   }
 
 }, { timestamps: true });

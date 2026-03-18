@@ -28,19 +28,21 @@ async function sendSubmissionToQueue(submission) {
   }
   try {
     const submissionPayload = {
-      submissionId: submission._id.toString(),
+      userId: submission.userId,
+      submissionId: submission.submissionId,
       code: submission.code,
       language: submission.language,
-      problemId: submission.problem.toString(),
-      // Add other details the worker needs
+      problemId: submission.problem,
+      timeLimit: submission.timeLimit,
+      memoryLimit: submission.memoryLimit
     };
-
+    console.log("Payload to be sent to queue:", submissionPayload);
     channel.sendToQueue(QUEUE_NAME, Buffer.from(JSON.stringify(submissionPayload)), {
       persistent: true,
     });
-    console.log(`[API] Sent submission ${submission._id} to queue.`);
+    console.log(`[API] Sent submission ${submissionPayload.submissionId} to queue.`);
   } catch (error) {
-    console.error(`[API] Failed to send submission ${submission._id} to queue:`, error);
+    console.error(`[API] Failed to send submission ${submissionPayload.submissionId} to queue:`, error);
   }
 }
 
