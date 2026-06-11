@@ -4,8 +4,9 @@ const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const {app, server} = require('./src/lib/socket.js');
+require("./src/lib/redis.js");
 const { connectDB } = require('./src/lib/db.js');
-const { connectQueue } = require('./src/lib/queue.js');
+
 const { router: authRoutes } = require('./src/routes/auth.routes.js');
 const { router: problemRoutes } = require('./src/routes/problem.routes.js');
 const { router: internalRoutes } = require('./src/routes/internal.routes.js');
@@ -33,5 +34,4 @@ app.use("/api/registration", registrationRoutes)
 server.listen(PORT, () => {
   console.log(`Backend server listening on ${PORT} port...`);
   connectDB();
-  connectQueue();
 });

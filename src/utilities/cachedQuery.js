@@ -1,55 +1,85 @@
 const mongoose = require('mongoose');
 const {client} = require("../lib/redis.js");
-
-// This utility extends Mongoose's Query prototype to add a .cache() method for easy Redis caching of query results.
+const { generate_cache_key } = require('../utilities/redis_cache.js');
+const { REDIS_CONSTANTS } = require('./redis_controllers/redis_constants.js');
 
 const originalExec = mongoose.Query.prototype.exec;
-
-// 1. Create the chainable .cache() method
 mongoose.Query.prototype.cache = function (options = {}) {
-    // Set a flag on the current query instance
     this._shouldCache = true;
-    
-    // Optionally allow passing a custom top-level hash key
-    this._hashKey = options.key || this.model.modelName; 
-    this._ttl = options.ttl || 3600; // default TTL of 1 hour for cache entries
-    
-    // Return 'this' to make it chainable: User.find().cache().exec()
+    this._key = options.key || generate_cache_key({
+        query: this.getQuery(),
+        collection: this.mongooseCollection.name,
+        options: this.getOptions(),
+        operation: this.op
+    }); 
+    this._ttl = options.ttl || 3600;
+    return this; 
+};
+
+mongoose.Query.prototype.hashCache = function (options = {}) {
+    this._shouldHashCache = true;
+    this._hashKey = options.key || generate_cache_key({
+        entity: this.model.modelName,
+        purpose: REDIS_CONSTANTS.PURPOSE.DB_CALLS_CACHING
+    }); 
+    this._ttl = options.ttl || 3600;
     return this; 
 };
 
 mongoose.Query.prototype.exec = async function () {
-    // 2. The Gatekeeper: If .cache() wasn't called, skip Redis entirely
-    if (!this._shouldCache) {
+    if (!this._shouldCache&&!this._shouldHashCache) {
         return await originalExec.apply(this, arguments);
+    }else if(this._shouldCache&&this._shouldHashCache){
+        throw new Error("Cannot use both cache and hashCache on the same query");
     }
+    const isLean = this._mongooseOptions && this._mongooseOptions.lean;
+    if(this._shouldCache){  
+        const key = this._key;
+        const cachedResult = await client.get(key);
 
-    // 3. Proceed with caching logic ONLY for opted-in queries
-    const hashKey = this._hashKey;
-    const queryField = JSON.stringify({
-        query: this.getQuery(),
-        collection: this.mongooseCollection.name,
-        options: this.getOptions()
-    });
+        if (cachedResult) {
+            console.log(`[Redis] Cache Hit for: ${key}`);
+            const parsedDoc = JSON.parse(cachedResult);
+            if(isLean) return parsedDoc;
+            return Array.isArray(parsedDoc)
+                ? parsedDoc.map(doc => this.model.hydrate(doc))
+                : this.model.hydrate(parsedDoc);
+        }
+        console.log(`[MongoDB] Cache Miss for: ${key}`);
+        const result = await originalExec.apply(this, arguments);
+        if(this._ttl > 0) client.set(key, JSON.stringify(result), 'EX', this._ttl).catch((error) => {
+            console.log("Error in cached query on: "+ key +", "+ error);
+        });
+        else client.set(key, JSON.stringify(result)).catch((error) => {
+            console.log("Error in cached query on: "+ key +", "+ error);
+        });
+        return result;
+    }else{
+        const hashKey = this._hashKey;
+        const queryField = JSON.stringify({
+            query: this.getQuery(),
+            collection: this.mongooseCollection.name,
+            options: this.getOptions()
+        });
+        const cachedResult = await client.hget(hashKey, queryField);
+        if (cachedResult) {
+            console.log(`[Redis] Cache Hit for: ${hashKey}`);
+            const parsedDoc = JSON.parse(cachedResult);
+            if(isLean) return parsedDoc;
+            return Array.isArray(parsedDoc)
+                ? parsedDoc.map(doc => this.model.hydrate(doc))
+                : this.model.hydrate(parsedDoc);
+        }
+        console.log(`[MongoDB] Cache Miss for: ${hashKey}`);
+        const result = await originalExec.apply(this, arguments);
+        const client_pipeline = client.pipeline();
 
-    const cachedResult = await client.hget(hashKey, queryField);
+        client_pipeline.hset(hashKey, queryField, JSON.stringify(result));
+        if(this._ttl > 0) client_pipeline.expire(hashKey, this._ttl)
 
-    if (cachedResult) {
-        console.log(`[Redis] Cache Hit for: ${hashKey}`);
-        const parsedDoc = JSON.parse(cachedResult);
-        return Array.isArray(parsedDoc)
-            ? parsedDoc.map(doc => this.model.hydrate(doc))
-            : this.model.hydrate(parsedDoc);
+        client_pipeline.exec().catch((error) => {
+            console.log("Error in cached query on: "+ hashKey+", "+ error);
+        });
+        return result;
     }
-
-    console.log(`[MongoDB] Cache Miss for: ${hashKey}`);
-    const result = await originalExec.apply(this, arguments);
-
-    if (result) {
-        client.hset(hashKey, queryField, JSON.stringify(result));
-        client.expire(hashKey, this._ttl); // Set expiration time for the cache entry
-        // Optional: Add a default TTL for these hash keys if needed
-    }
-
-    return result;
 };

@@ -4,7 +4,7 @@ const { Schema, model } = mongoose;
 const registrationSchema = new Schema({
   // Link to the Assessment being registered for
   assessment: {
-    type: Schema.Types.ObjectId,
+    type: Number,
     ref: 'Assessment', // References your Assessment model
     required: [true, 'Assessment ID is required for registration'],
     index: true,

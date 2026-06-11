@@ -1,202 +1,227 @@
 const {client} = require("../lib/redis.js");
+const { Problem } = require("../models/problem.model.js");
+const { Registration } = require("../models/registration.model.js");
+const {Submission} = require("../models/submission.model.js");
+const {redis_controllers} = require("../utilities/redis_controllers/import.js");
 
-// use redis hashset instead of string for caching submission pages and assessment info to allow more granular cache invalidation
-// major top level keys are: assessment, problem, registration, submission, team, teamScore, test, user
-// add expiration time of 30 minutes for all caches to prevent stale data and memory bloat in redis
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+// todo: add total pages somehow
 const cachedSubmissionPages = async (req, res, next) => {
-    // rectify and use hashset for caching submission pages to allow more granular cache invalidation based on page number and user id
-    // cache key format: problem:submissions:pages:{userId}:{pageNumber}
-
-    const cacheKey = `problem:submissions:page:${req.params.pageNumber}`;
-    const cachedData = await client.hget(`submission:${req.user._id}`, cacheKey).catch((err) => { // use get instead of hget since we are using string for caching submission pages to simplify implementation and avoid issues with JSON stringification of hashset values
-        console.error("Error fetching cached submission pages:", err);
+    if(Number(req.params.pageNumber) > 1){
         return next();
-    });
-    if (cachedData) {
-        return res.status(200).json(JSON.parse(cachedData));
-    }   
-    const originalSend = res.send;
-    res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {    
-            // cache the submission pages for the user with an expiration time of 30 minutes
-            client.hset(`submission:${req.user._id}`, cacheKey, body).catch((err) => {
-                console.error("Error caching submission pages:", err);
-            });
-            client.expire(`submission:${req.user._id}`, 1800); // Set expiration time to 30 minutes
-        }
-        originalSend.call(this, body);
     }
-    next();
-}
+    try{
+        const page_number = Number(req.params.pageNumber)||1;
+        const cached_data = await redis_controllers.redis_user.get_user_submissions(req.user._id.toString(), page_number);
+        if(cached_data){
+            return res.status(200).json(cached_data);
+        }
 
-const removeCachedSubmissionPages = async (req, res, next) => {
+    }catch(error){
+        console.error("Error fetching cached submission pages:", error);
+        return next();
+    }
+
     const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            // delete all submission page caches for the user
-            console.log("Removing cached submission pages for userId:", req.user._id);
-            client.del(`submission:${req.user._id}`).catch((err) => {
-                console.error("Error removing cached submission pages:", err);
+
+        originalSend.call(this, body);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            redis_controllers.redis_user.save_user_submissions(req.user._id.toString(), res.locals.submissions, res.locals.totalDocuments).catch((error) => {
+                console.log("Error while saving user submissions: "+ error);
             });
         }
-        originalSend.call(this, body);
     }
     next();
+
 }
 
-const cachedAssessmentInfo = async (req, res, next) => {
-    const cacheKey = `problem:assessmentInfo:${req.user._id}`;
-    const cachedData = await client.hget(`assessment:${req.params.assessmentId}`, cacheKey).catch((err) => {
-        console.error("Error fetching cached assessment info:", err);
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+
+const cachedAssessmentPages = async (req, res, next) => {
+    const page_number = Number(req.params.pageNumber)||1;
+    if(page_number > 1){
         return next();
-    });
-    if (cachedData) {
-        return res.status(200).json(JSON.parse(cachedData));
+    }
+    try{
+        const cached_data = await redis_controllers.redis_assessment.get_assessment_info_from_sorted_set_by_page_number(page_number, req.user._id.toString());
+        if(cached_data){
+            return res.status(200).json(cached_data);
+        }
+    }catch(error){
+        console.error("Error fetching cached assessment info:", error);
+        return next();
     }
     const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            // cache the assessment info for the user with an expiration time of 30 minutes
+        originalSend.call(this, body);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+
+            redis_controllers.redis_assessment.save_assessment_array_to_sorted_set(res.locals.assessments, res.locals.totalDocuments).catch((error) => {
+                console.log("Error while saving contests: "+ error);
+            });
             
-            client.hset(`assessment:${req.params.assessmentId}`, cacheKey, body).catch((err) => {
-                console.error("Error caching assessment info:", err);
-            });
-            client.expire(`assessment:${req.params.assessmentId}`, 1800);
         }
-        originalSend.call(this, body);
     }
     next();
 }
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
-const removeCachedAssessmentInfo = async (req, res, next) => {
-    const originalSend = res.send;
-    res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300 && req.body.assessment) {
-            // delete all assessment info caches for the assessment
-            // remove only when req.body.assessment is not null or undefined to prevent accidental cache deletion due to client errors
-            console.log("Removing cached assessment info for assessmentId:", req.body.assessment);
-            if(req.body.assessment) {
-                client.del(`assessment:${req.body.assessment}`).catch((err) => {
-                    console.error("Error removing cached assessment info:", err);
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+const cachedProblemSet = async (req, res, next) => {
+
+    const page_number = Number(req.params.pageNumber)||1;
+    if(page_number > 1){
+        return next();
+    }
+
+    const isAdmin = req.user.isAdmin;
+    if(isAdmin){
+        try{
+            const cached_data = await redis_controllers.redis_problem.get_problems_from_private_set(page_number, req.user._id.toString());
+            
+            if(cached_data){
+                return res.status(200).json(cached_data);
+            }
+            console.log('// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->')
+        }catch(error){
+            console.error("Error fetching cached problem set:", error);
+            return next();
+        }
+        const originalSend = res.send;
+        res.send = function (body) {
+            originalSend.call(this, body);
+            if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+                redis_controllers.redis_problem.save_problems_to_private_set(res.locals.problems, res.locals.totalDocuments).catch((error) => {
+                    console.log("Error while saving problemset: "+ error);
                 });
             }
         }
-        originalSend.call(this, body);
+        next();
+    }else{
+        console.log("Reached Here");
+        try{
+            const cached_data = await redis_controllers.redis_problem.get_problems_from_public_set(page_number, req.user._id.toString());
+            console.log(cached_data);
+            if(cached_data){
+                return res.status(200).json(cached_data);
+            }
+        }catch(error){
+            console.error("Error fetching cached problem set:", error);
+            return next();
+        }
+        const originalSend = res.send;
+        res.send = function (body) {
+            originalSend.call(this, body);
+            console.log(res.statusCode);
+            if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+                console.log("hiyihi");
+                redis_controllers.redis_problem.save_problems_to_public_set(res.locals.problems, res.locals.totalDocuments).catch((error) => {
+                    console.log("Error while saving problemset: "+ error);
+                });
+            }
+        }
+        next();
+        console.log("exited Here");
     }
-    next();
 }
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
-const cachedProblemDetails = async (req, res, next) => {
-    const cacheKey = `problem:details:${req.params.id}`;
-    const cachedData = await client.get(cacheKey).catch((err) => {
-        console.error("Error fetching cached problem details:", err);
-        return next();
-    });
-    if (cachedData) {
-        console.log("Fetching cached problem details:", cacheKey);
-        return res.status(200).json(JSON.parse(cachedData));
-    }
+const addProblemtoCache = async(req, res, next) => {
     const originalSend = res.send;
+    const user = req.user;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            client.setex(cacheKey, 3600, body).catch((err) => {
-                console.error("Error caching problem details:", err);
+        originalSend.call(this, body);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            if(req.isPrivate) redis_controllers.redis_problem.save_problem_to_private_set(res.locals).catch((error) => {
+                console.log("Error while adding problem to cache: " + error);
+            });
+            else redis_controllers.redis_problem.save_problem_to_public_set(res.locals).catch((error) => {
+                console.log("Error while adding problem to cache: " + error);
             });
         }
-        originalSend.call(this, body);
     }
     next();
 }
 
-const cachedProblemSet = async (req, res, next) => {
-    let cacheKey = `problemSet:page:${req.user._id}:${req.params.pageNumber}`;
-    const cachedData = await client.hget(`problem`, cacheKey).catch((err) => {
-        console.error("Error fetching cached problem set:", err);
-        return next();
-    });
-    if (cachedData) {
-        console.log("Fetching cached problem set:", cacheKey);
-        return res.status(200).json(JSON.parse(cachedData));
-    }
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+const addAssessmenttoCache = async(req, res, next) => {
     const originalSend = res.send;
+    const user = req.user;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            // cache the problem set for the user with an expiration time of 30 minutes
-            client.hset(`problem`, cacheKey, body).catch((err) => {
-                console.error("Error caching problem set:", err);
-            });
-            client.expire(`problem`, 1800);
-        }
         originalSend.call(this, body);
-    }
-    next();
-}
-
-const removeCachedProblemSet = async (req, res, next) => {
-    const originalSend = res.send;
-    res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            // delete all problem set caches for the user
-            client.hdel('problem').catch((err) => {
-                console.error("Error removing cached problem set:", err);
-            }); 
-
-        }
-        originalSend.call(this, body);
-    }
-    next();
-}
-
-const cachedCode = async (req, res, next) => {
-    const cacheKey = `problem:code:${req.params.submissionId}`;
-    const cachedData = await client.get(cacheKey).catch((err) => {
-        console.error("Error fetching cached code:", err);
-        return next();
-    }
-    );
-    if (cachedData) {
-        return res.status(200).json(JSON.parse(cachedData));
-    }   
-    const originalSend = res.send;  
-    res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            client.setex(cacheKey, 1800, body).catch((err) => {
-                console.error("Error caching code:", err);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            redis_controllers.redis_assessment.save_assessment_info_to_sorted_set(res.locals).catch((error) => {
+                console.log("Error while adding assessment to cache: "+ error);
             });
         }
-        originalSend.call(this, body);
     }
     next();
 }
 
-const populateSolvedSet = async(req, res, next) => {
-    // populate the solved set in redis for the user if it doesn't exist or is empty
-    const cacheKey = `solved:${req.user._id}`;
-    if(await client.exists(cacheKey) === 0 ) {
-        // cache isnt populated yet, populate it with all problemIds that the user has solved
-        const solvedSubmissions = await Submission.find({
-            user: req.user._id,
-            status: "Accepted"
-        }).select("problem");
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
-        if(solvedSubmissions.length > 0) {
-            const temp = solvedSubmissions.map(s => s.problem.toString());
-            await client.sadd(cacheKey, temp);
+const cacheNewSubmission = async (req, res, next) => {
+    const user = req.user;
+    const {code, language, assessmentID} = req.body;
+    const {id: problemId} = req.params;
+    const originalSend = res.send;
+    res.send = function (body) {
+        originalSend.call(this, body);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
+            redis_controllers.redis_user.save_user_submission(user._id.toString(), res.locals).catch((error) => {
+                console.log("Error while adding new submission to cache: "+ error);
+            });
         }
     }
     next();
 }
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+const hydrateWithSolvedStatus = async(req,res,next) => {
+    const user = req.user;
+    try{
+        const originalSend = res.send;
+        res.send = function(body) {
+            body = JSON.parse(body);
+            if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
+                (async () => {
+                    try {
+                        const id_array = body.problems.map(p => p._id.toString());
+                        const result = await redis_controllers.redis_user.check_problems_in_solved_bitmap(req.user._id, id_array);
+                        for (let i = 0; i < body.problems.length; i++) {
+                            body.problems[i].isSolved = (result[i] === 1); 
+                        }
+                        originalSend.call(res, JSON.stringify(body));
+                    } catch (error) {
+                        console.error("Error while hydrating all problems body with is solved data: ", error);
+                        originalSend.call(res, JSON.stringify(body));
+                    }
+                })();
+                return;
+            }
+            originalSend.call(this, JSON.stringify(body));
+        }
+        next();
+    }catch(error){
+        console.log("Error while hydrating all problem response: " + error);
+    }
+}
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 module.exports = {
     cachedSubmissionPages,
-    removeCachedSubmissionPages,
-    cachedAssessmentInfo,
-    cachedProblemDetails,
+    cachedAssessmentPages,
     cachedProblemSet,
-    removeCachedProblemSet,
-    removeCachedAssessmentInfo,
-    cachedCode,
-    populateSolvedSet
+    addProblemtoCache,
+    addAssessmenttoCache,
+    cacheNewSubmission,
+    hydrateWithSolvedStatus
 }
 
 

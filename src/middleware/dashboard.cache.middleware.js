@@ -1,165 +1,211 @@
 const {client} = require("../lib/redis.js");
-// Middleware to cache dashboard data for 12 hours to reduce load on the database
+const {redis_controllers} = require("../utilities/redis_controllers/import.js");
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 const cacheContestPages = async (req, res, next) => {
-    // use hget and hset with a hashset for caching contest pages to allow more granular cache invalidation based on page number and user id
-    // add expiration time on the hashset to prevent stale data and memory bloat in redis
-    const cacheKey = `dashboard:contest:pages:${req.user._id}:${req.params.pageNumber}`;
-    const cachedData = await client.hget('contest',cacheKey).catch((err) => {
-        console.error("Error fetching cached contest pages:", err);
+    const page_number = Number(req.params.pageNumber)||1;
+    if(page_number > 1){
         return next();
-    });
-    if (cachedData) {
-        return res.status(200).send(JSON.parse(cachedData));
+    }
+    try{
+        const cached_data = await redis_controllers.redis_assessment.get_assessment_info_from_sorted_set_by_page_number(page_number, req.user._id.toString());
+        if(cached_data){
+            return res.status(200).json(cached_data);
+        }
+    }catch(error){
+        console.error("Error fetching cached assessment info:", error);
+        return next();
     }
     const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            client.hset('contest', cacheKey, body).catch((err) => {
-                console.error("Error caching contest pages:", err);
-            });
-            client.expire('contest', 43200); // Set expiration time to 12 hours
-        }
         originalSend.call(this, body);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+
+            redis_controllers.redis_assessment.save_assessment_array_to_sorted_set(res.locals.assessments, res.locals.totalDocuments).catch((error) => {
+                console.log("Error while saving contests: "+ error);
+            });
+            
+        }
     }
     next();
 }
 
-const removeAllCachedContestPages = async (req, res, next) => {
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+// to be fixed, todo
+const cacheProblemSolvedCount = async (req, res, next) => {
+    const user = req.user;
+    try{
+        const cached_data = await redis_controllers.redis_user.get_problem_solved_count(user._id.toString());
+        if(cached_data !== null){
+            return res.status(200).json(cached_data);
+        }
+    }catch(error){
+        console.error("Error fetching cached problem solved count:", error);
+        return next();
+    }
     const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            // delete all contest page caches for the user
-            client.hdel('contest').catch((err) => {
-                console.error("Error removing cached contest pages:", err);
-            });
-
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            redis_controllers.redis_user.save_problem_to_solved_bitmap(user._id.toString(), res.locals.problemList).catch((error) => {
+                console.log("Error while caching solved problems: "+ error);
+            })
         }
         originalSend.call(this, body);
-    }
+    };
+    next();
 }
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
-const cacheProblemSolvedCount = async (req, res, next) => {
-    const cacheKey = `dashboard:problemSolvedCount:${req.user._id}`;
-    const cachedData = await client.get(cacheKey).catch((err) => {
-        console.error("Error fetching cached problem solved count:", err);
+// to be fixed, todo
+const cacheContestCount = async (req, res, next) => {
+    const user = req.user;
+    try{
+        const cached_data = await redis_controllers.redis_user.get_user_contest_count(user._id.toString());
+        if(cached_data !== null){
+            return res.status(200).json(cached_data);
+        }
+    }catch(error){
+        console.error("Error fetching cached contest count:", error);
         return next();
-    });
-    if (cachedData) {
-        return res.status(200).json(JSON.parse(cachedData));
     }
-    const originalSend = res.send;  
+    const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            
-            client.setex(cacheKey, 1800, body).catch((err) => {
-                console.error("Error caching problem solved count:", err);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            redis_controllers.redis_user.save_to_user_given_contest_bitmap(user._id.toString(), res.locals.assessmentList)
+            .catch((error) => {
+                console.log("Error while caching contest to given bitmap: "+ error);
             });
         }
         originalSend.call(this, body);
     };
     next();
-};
-
-const cacheContestCount = async (req, res, next) => {
-    const cacheKey = `solved:${req.user._id}`;
-    // use scard to get the size of the set, the set will surely be there as we added a middleware to populate the set before this middleware is called
-    const cachedData = await client.scard(cacheKey).catch((err) => {
-        console.error("Error fetching cached contest count:", err);
-        return next();
-    });
-    
 }
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const cacheRecentSubmissions = async (req, res, next) => {
-    const cacheKey = `dashboard:recentSubmissions`;
-    const cachedData = await client.hget(`submission:${req.user._id}`,cacheKey).catch((err) => {
-        console.error("Error fetching cached recent submissions:", err);
+    const user = req.user;
+    try{
+        const cached_data = await redis_controllers.redis_user.get_user_recent_submissions(user._id);
+        console.log(cached_data);
+        if(cached_data){
+            return res.status(200).json(cached_data);
+        }
+    }catch(error){
+        console.error("Error fetching cached recent submissions:", error);
         return next();
-    });
-    if (cachedData) {
-        return res.status(200).json(JSON.parse(cachedData));
     }
+
     const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            client.hset(`submission:${req.user._id}`, cacheKey, body).catch((err) => {
-                console.error("Error caching recent submissions:", err);
-            });
-            client.expire(`submission:${req.user._id}`, 1800);
-        }
         originalSend.call(this, body);
-    }
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            console.log(res.locals.totalDocuments);
+            redis_controllers.redis_user.save_user_submissions(user._id.toString(), res.locals.submissionList, res.locals.totalDocuments).catch((error) => {
+                console.log("Error occoured while caching recent submission: " + error);
+            });
+        }
+    };
     next();
 }
 
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 const cacheLastAcceptedSubmission = async (req, res, next) => {
-    const cacheKey = `dashboard:lastAcceptedSubmission:${req.user._id}`;
-    const cachedData = await client.get(cacheKey).catch((err) => {
-        console.error("Error fetching cached last accepted submission:", err);
+    const user = req.user;
+    try{
+        const cached_data = await redis_controllers.redis_user.get_last_accepted_submission(user._id.toString());
+        if(cached_data){
+            return res.status(200).json(cached_data);
+        }
+    }catch(error){
+        console.error("Error fetching cached last accepted submission:", error);
         return next();
-    });
-    if (cachedData) {
-        return res.status(200).json(JSON.parse(cachedData));
     }
     const originalSend = res.send;
     res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            client.setex(cacheKey, 1800, body).catch((err) => {
-                console.error("Error caching last accepted submission:", err);
-            }
-            );
-            client.expire(cacheKey, 1800);
-        }   
-        originalSend.call(this, body);
-    }
-    next();
-}
-
-const removeCachedProblemSolvedCount = async (req, res, next) => {
-    if(req.body.verdict === "Accepted"){
-        
-        const cacheKey = `dashboard:problemSolvedCount:${req.user._id}`;
-        await client.del(cacheKey).catch((err) => {
-            console.error("Error removing cached problem solved count:", err);
-        });
-    }
-    next();
-};
-
-const removeCachedRecentSubmissions = async (req, res, next) => {
-
-    const originalSend = res.send;
-    res.send = function (body) {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-            client.hdel(`submission:${req.user._id}`, `dashboard:recentSubmissions`).catch((err) => {
-                console.error("Error removing cached recent submissions:", err);
+        if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
+            redis_controllers.redis_user.save_last_accepted_submission(user._id.toString(), body.submission).catch((error) => {
+                console.log("Error while caching last accepted submission: "+ error);
             });
         }
         originalSend.call(this, body);
+    };
+    next();
+}
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+const hydrateWithRegisteredStatus = async(req,res,next) => {
+    const user = req.user;
+    try{
+        const originalSend = res.send;
+        res.send = function(body) {
+            body = JSON.parse(body);
+            if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
+                (async () => {
+                    try {
+                        const id_array = body.assessments.map(p => p._id.toString());
+
+                        const result = await redis_controllers.redis_user.check_contests_in_given_bitmap(req.user._id.toString(), id_array);
+                        for (let i = 0; i < body.assessments.length; i++) {
+                            body.assessments[i].isSolved = (result[i] === 1); 
+                        }
+                        originalSend.call(res, JSON.stringify(body));
+
+                    } catch (error) {
+                        console.error("Error while hydrating all contest body with is registered data: ", error);
+                        originalSend.call(res, JSON.stringify(body));
+                    }
+                })();
+                return;
+            }
+            originalSend.call(this, JSON.stringify(body));
+        }
+        next();
+    }catch(error){
+        console.log("Error while hydrating all problem response: " + error);
+    }
+}
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+const hydrateLeaderboad = async(req, res, next) => {
+
+    const originalSend = res.send;
+    res.send = function(body){
+        body = JSON.parse(body);
+        if((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
+            const pageNumber = Number(req.params.pageNumber) || 1;
+            const assessmentId = req.params.assessmentId;
+            
+            (async () => {
+                try{
+                    const data = await redis_controllers.redis_leaderboard.get_leaderboard_by_page_number(assessmentId, pageNumber, res.locals.registration.team.toString());
+                    body = {
+                        ...body,
+                        ...data
+                    }
+                    originalSend.call(res, JSON.stringify(body));
+                }catch(error){
+                    console.error("Error while hydrating leaderboard ", error);
+                    originalSend.call(res, JSON.stringify(body));
+                }
+            })();
+            return;
+        }
+        originalSend.call(this, JSON.stringify(body));
     }
     next();
 }
 
-const removeCachedLastAcceptedSubmission = async (req, res, next) => {
-    if(req.body.verdict === "Accepted"){
-        const cacheKey = `dashboard:lastAcceptedSubmission:${req.user._id}`;
-        await client.del(cacheKey).catch((err) => {
-            console.error("Error removing cached last accepted submission:", err);
-        });
-    }
-    next();
-}
-
-
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 module.exports = {
     cacheContestPages,
-    removeAllCachedContestPages,
     cacheProblemSolvedCount,
-    removeCachedProblemSolvedCount,
     cacheContestCount,
     cacheRecentSubmissions, 
-    removeCachedRecentSubmissions,
     cacheLastAcceptedSubmission,
-    removeCachedLastAcceptedSubmission,
+    hydrateWithRegisteredStatus,
+    hydrateLeaderboad
 
 }

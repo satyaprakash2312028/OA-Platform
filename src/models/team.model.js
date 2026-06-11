@@ -13,7 +13,7 @@ const teamSchema = new Schema({
     required: true,
   },
   assessment:{
-    type: Schema.Types.ObjectId,
+    type: Number,
     ref: 'Assessment',
     required: true
   }

@@ -9,7 +9,7 @@ const teamScoreSchema = new Schema({
     index: true,
   },
   assessment: {
-    type: Schema.Types.ObjectId,
+    type: Number,
     ref: 'Assessment',
     required: [true, 'Assessment ID is required for team score'],
     index: true,

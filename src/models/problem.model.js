@@ -1,11 +1,23 @@
-const { Schema, model } = require("mongoose");
+const mongoose = require("mongoose");
+const { Schema, model } = mongoose;
+
+// 1. Create a shared Counter Schema safely
+const counterSchema = new Schema({
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 999999 } // Starts at 999999 so the first increment yields 1000000
+});
+const Counter = mongoose.models.Counter || model('Counter', counterSchema);
+
 const problemSchema = new Schema(
     {
+        _id: { 
+            type: Number 
+        },
         problemId: {
             type: Number,
             required: [true, 'Problem ID is required'],
-            unique: true, // Ensures no two problems have the same ID
-            index: true   // Creates a database index for fast lookups by problemId
+            unique: true,
+            index: true
         },
         name: {
             type: String,
@@ -43,13 +55,37 @@ const problemSchema = new Schema(
             default: null
         },
         assessment: {
-            type: Schema.Types.ObjectId,
+            type: Number,
             ref: "Assessment",
             required: false
+        },
+        points: {
+            type: Number,
+            required: true,
+            default: 1500
         }
     },
-    {timestamps: true}
+    { timestamps: true }
 );
 
+// 2. Pre-save hook to handle the auto-increment atomically
+problemSchema.pre('save', async function(next) {
+    if (this.isNew) {
+        try {
+            const counter = await Counter.findByIdAndUpdate(
+                'problem_seq', // Unique identifier for the Problem counter
+                { $inc: { seq: 1 } },
+                { new: true, upsert: true, setDefaultsOnInsert: true }
+            );
+            this._id = counter.seq;
+            next();
+        } catch (error) {
+            next(error);
+        }
+    } else {
+        next();
+    }
+});
+
 const Problem = model("Problem", problemSchema);
-module.exports = {Problem};
+module.exports = { Problem, Counter };

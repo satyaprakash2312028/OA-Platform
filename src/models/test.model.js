@@ -4,7 +4,7 @@ const { Schema, model } = mongoose;
 const testSchema = new Schema({
   // Link to the Problem document
   problem: {
-    type: Schema.Types.ObjectId,
+    type: Number,
     ref: 'Problem', // References the 'Problem' model you defined
     required: [true, 'Test case must belong to a problem'],
     index: true // Helps find test cases for a specific problem faster

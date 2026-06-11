@@ -10,8 +10,8 @@ const mcqSubmissionSchema = new Schema({
         ref: "User",
         required: true
     },
-    assesment: {
-        type: Schema.Types.ObjectId,
+    assessment: {
+        type: Number,
         ref: 'Assessment',
         required: false
     },

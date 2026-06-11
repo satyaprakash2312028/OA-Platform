@@ -1,0 +1,17 @@
+[] Add cache invalidation on single adding function for addition of new
+	submission
+	problem
+	assessment
+	using O(1) hash deletion and redis pipelining on single addition functions
+
+[] Change contest and problem id to numeric value
+[] Add team id in judge verdict payload and assessment id as well
+[] Add leaderboard endpoint
+[] match all response json from cache as well as controllers, also make a wrapper function if possible.
+
+
+// rough
+
+nemerical checks 
+assessment, problem: hence no database call checks required on these two
+registration, teamId and others are required to be checked on database, but non of them will get effected by the addition of new entity, so no cache invalidation required..

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 // Make sure to adjust the path to where your actual Problem model is located
 // If you prefer, you can also paste the model definition directly here for a standalone script.
-const { Problem } = require("./models/problem.model"); 
+const { Problem, Counter } = require("./models/problem.model"); 
 
 // REPLACE WITH YOUR ACTUAL MONGODB URI
 const MONGO_URI = "mongodb+srv://swadeshicreator_db_user:jYCXD1cZLzsVVCgO@cluster0.vdvdirm.mongodb.net/OA_Database?appName=Cluster0";
@@ -183,13 +183,21 @@ const seedDB = async () => {
     await mongoose.connect(MONGO_URI);
     console.log("Connected to MongoDB...");
 
-    // Optional: Clear existing problems to avoid duplicate key errors
-    // await Problem.deleteMany({});
-    // console.log("Cleared existing problems...");
+    // 1. Clear existing problems to keep a clean slate
+// 1. Clear existing problems to keep a clean slate
+    await Problem.deleteMany({});
+    console.log("Cleared existing problems...");
 
-    await Problem.insertMany(seedProblems);
-    console.log("Successfully seeded 10 problems!");
+    // 2. CRITICAL FIX: Delete any old counter, then EXPLICITLY create the starting counter
+    await Counter.deleteOne({ _id: 'problem_seq' });
+    await Counter.create({ _id: 'problem_seq', seq: 999999 }); // Force the starting number here!
+    console.log("Reset and initialized problem sequence counter to 999999...");
 
+    // 3. Save documents individually so the pre('save') hook triggers
+    const savePromises = seedProblems.map(prob => new Problem(prob).save());
+    await Promise.all(savePromises);
+
+    console.log("Successfully seeded 10 problems with sequential IDs starting at 1000000!");
     mongoose.connection.close();
   } catch (err) {
     console.error("Error seeding database:", err);

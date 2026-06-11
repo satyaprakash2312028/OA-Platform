@@ -2,40 +2,39 @@ const {Submission} = require("../models/submission.model.js");
 const {TeamScore} = require("../models/teamScore.model.js");
 const {Registration} = require("../models/registration.model.js");
 const {io, getReceiverSocketId}  = require('../lib/socket.js');
+const {redis_controllers} = require('../utilities/redis_controllers/import.js');
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const getJudgeVedict = async(req, res) => {
     try{
-        req.user = { _id: req.body.userId }; // Set the user in the request object for caching in middleware
-        const {submissionId, verdict, executionTime, memoryUsed, status} = req.body;
+        req.user = { _id: req.body.user };
+        const {_id, verdict, executionTime, memoryUsed, status, user} = req.body;
+        const userSocketId = getReceiverSocketId(user);
+        if(userSocketId){
+            io.to(userSocketId).emit("statusUpdate", {_id, verdict, status});
+        }
+        // continue from here
         console.log("Received judge verdict for submissionId:", req.body);
         console.log(verdict);
-        const submission = await Submission.findByIdAndUpdate(submissionId, {
+        const submission = await Submission.findByIdAndUpdate(_id, {
             status: verdict,
             executionTime,
             memoryUsed
-        });
+        }, { new: true });
         if(!submission) return res.status(404).json({message: "Submission not found"});
-        const userSocketId = getReceiverSocketId(submission.user);
-        if(userSocketId){
-            io.to(userSocketId).emit("statusUpdate", {submissionId, verdict, status});
-        }
-        // Update team score if submission is accepted and linked to an assessment
-        if(submission.assesment&&(verdict==="Accepted")){
-            const alreadySolved = await Submission.findOne({
-                user: submission.user,
-                problem: submission.problem,
-                assesment: submission.assesment,
-                status: "Accepted",
-                _id: { $ne: submission._id } // Exclude current submission
-            });
-            if(alreadySolved){
-                return res.status(200).json({message: "Judge vedict processed successfully"});
+        
+        if(submission.assessment&&(verdict==="Accepted")){
+            try{
+                redis_controllers.redis_leaderboard.update_team_score_in_leaderboard(req.body).catch((error)=>{
+                    console.log("Error while updating team score in redis leaderboad. " + error);
+                });
+                redis_controllers.redis_user.save_user_submission(user, submission).catch((error)=>{
+                    console.log("Error while saving user submission to sorted set. " + error);
+                });
+            }catch(error){
+                console.log('Error while updating leaderboard ');
             }
-            const teamId = await Registration.findOne({assessment: submission.assesment, user: submission.user}).select("_id");
-            if(!teamId) return res.status(404).json({message: "Team not found for this submission"});
-            await TeamScore.findOneAndUpdate({team: teamId, assessment: submission.assesment}, {
-                $inc: {score: 7}
-            });
         }
         res.status(200).json({message: "Judge vedict processed successfully"});
     }catch(error){
@@ -44,13 +43,13 @@ const getJudgeVedict = async(req, res) => {
     }   
 }
 
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 const getStatus = async(req, res) => {
     try{
-        const {submissionId, status, verdict} = req.body;
-        const submission = await Submission.findById(submissionId);
-        if(!submission) return res.status(404).json({message: "Submission not found"});
-        const userId = submission.user;
-        const userSocketId = getReceiverSocketId(userId);
+        const {_id, status, verdict, user} = req.body;
+        
+        const userSocketId = getReceiverSocketId(user);
         if(userSocketId){
             io.to(userSocketId).emit("statusUpdate", {submissionId, status, verdict});
         }
@@ -60,5 +59,7 @@ const getStatus = async(req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 module.exports = {getJudgeVedict, getStatus};

@@ -1,0 +1,117 @@
+auth.ontroller.js
+
+login: 
+    {...user_mongoose_object - (password + otp)}
+
+
+
+logout: 
+    {message}
+
+
+
+checkAuth: 
+    {...user_mongoose_object - (password + otp)}
+
+
+
+checkVerified: 
+    {...user_mongoose_object - (password + otp)}
+
+
+
+_____________________________________________________________________________________________________________________
+
+
+dashboard.controller.js
+
+
+getContests:
+    {
+        assessments,    
+        totalPages,
+        pageNumber
+    }
+
+
+
+allOATakenPartInCount:
+    {
+        count
+    }
+
+
+
+problemSolved:
+    {
+        problemSolved   // Number of problem solved
+    }
+
+
+
+recentSubmissions:
+    {
+        submissions     // array of mongoose objects
+    }
+
+
+lastAcceptedSubmission:
+    {
+        submission      // submission_mongoose_object
+    }
+
+
+_____________________________________________________________________________________________________________________
+
+problem.controller.js
+
+getCode:
+    {
+        submission      // submission_mongoose_object
+    }
+
+
+submitProblem:
+    {
+        ...submission_mongoose_object - (code)
+    }
+
+
+getProblem:
+    {
+        ... problem_mongoose_object
+    }
+
+
+
+getOAssessments:
+    {
+        problems        // problem_mongoose_object_list
+        startTime       // assessment.startTime
+        endTime         // assesment.endTime
+    }
+
+
+
+getSubmissions:
+    {
+        submissions,    // submission_mongoose_object_list without code
+        totalPages,     
+        pageNumber
+    }
+
+
+
+
+allProblems:
+    {
+        problems,   // problem_mongoose_object_list
+        totalPages,
+        pageNumber
+    }
+
+
+
+
+
+

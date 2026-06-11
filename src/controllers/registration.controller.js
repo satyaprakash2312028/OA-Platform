@@ -6,44 +6,191 @@ const {Assessment} = require("../models/assessment.model.js");
 const {Registration} = require("../models/registration.model.js");
 const {Team} = require("../models/team.model.js");
 const { mongoose } = require("mongoose");
+const crypto = require('crypto');
+const dotenv = require("dotenv");
+dotenv.config();
+const {generate_cache_key} = require("../utilities/redis_cache.js");
+const {REDIS_CONSTANTS} = require("../utilities/redis_controllers/redis_constants.js");
+
+// object id is 24 character long string
+// basically it is a number written in base 16
+// it is a 12 byte number where first 4 bytes are timestamp, next 5 bytes are random value and last 3 bytes are incrementing counter
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+// const P = 13127;
+// const modpow = (a, b) => {
+//     let x = a;
+//     let y = b;
+//     x %= P;
+//     let res = 1;
+//     while(y > 0) {
+//         if(y&1) res = (res*x)%P;
+//         x = (x*x)%P;
+//         y>>=1;
+//     }
+//     return res;
+// }
+
+// const modInverse = (a) => {
+//     return modpow(a, P-2);
+// }
+
+// const encrypt_object_id = (string) => {
+//     let res = '';
+//     for(let i = 0; i<6; i++){
+//         res += string.charAt(i+6);
+//         res += string.charAt(i);
+//         res += string.charAt(i+18);
+//         res += string.charAt(i+12);
+//     }
+//     let encrypted_string = '';
+//     for(let i = 0; i<8; i++){
+//         let num = parseInt(res.substring(i*3, i*3+3), 16);
+//         num = modInverse(num);
+//         let hexString = num.toString(16);
+//         hexString = hexString.padStart(4, '0');
+//         hexString = hexString.split('').reverse().join('');
+//         encrypted_string += hexString;
+//     }
+//     let final_string = '';
+//     for(let i = 0; i<8; i++){
+//         final_string += encrypted_string.charAt(i+24);
+//         final_string += encrypted_string.charAt(i+8);
+//         final_string += encrypted_string.charAt(i+16);
+//         final_string += encrypted_string.charAt(i);
+//     }
+//     return final_string;
+// }
+
+// const decrypt_object_id = (encrypted_string) => {
+//     let rearranged_string = new Array(32).fill('0');
+//     for(let i = 0; i<8; i++){
+//         rearranged_string[i+24] = encrypted_string.charAt(4*i);
+//         rearranged_string[i+8] = encrypted_string.charAt(4*i+1);
+//         rearranged_string[i+16] = encrypted_string.charAt(4*i+2);
+//         rearranged_string[i] = encrypted_string.charAt(4*i+3);
+//     }
+//     rearranged_string = rearranged_string.join('');
+//     let decrypted_string = '';
+//     for(let i = 0; i<8; i++){
+//         let hexString = rearranged_string.substring(i*4, i*4+4);
+//         hexString = hexString.split('').reverse().join('');
+//         let num = parseInt(hexString, 16);
+//         num = modInverse(num);
+//         decrypted_string += num.toString(16).padStart(3, '0');
+//     }
+//     let final_string = new Array(24).fill('0');
+//     for(let i = 0; i<6; i++){
+//         final_string[i+6] = decrypted_string.charAt(i*4);
+//         final_string[i] = decrypted_string.charAt(i*4+1);
+//         final_string[i+18] = decrypted_string.charAt(i*4+2);
+//         final_string[i+12] = decrypted_string.charAt(i*4+3);
+//     }
+//     final_string = final_string.join('');
+
+//     return final_string;
+// }
+
+
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+const SECRET_KEY = Buffer.from(process.env.AES_256_ECB_SECRET, 'utf-8');
+const encrypt_object_id = (hexString) => {
+    const bufferId = Buffer.from(hexString, 'hex');
+    const cipher = crypto.createCipheriv('aes-256-ecb', SECRET_KEY, null);
+    let encrypted = cipher.update(bufferId);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return encrypted.toString('base64url');
+}
+
+const decrypt_object_id = (encryptedString) => {
+    const encryptedBuffer = Buffer.from(encryptedString, 'base64url');
+    const decipher = crypto.createDecipheriv('aes-256-ecb', SECRET_KEY, null);
+    let decrypted = decipher.update(encryptedBuffer);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString('hex');
+}
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 
 const register = async(req, res) => {
     try{
         const {teamName, assessmentId, existingTeamID} = req.body;
         const user = req.user;
-        if(teamName.trim().length<=0) return res.status(400).json({ message: "Team name isn't provided." });
-        if(assessmentId.trim().length<=0) return res.status(400).json({ message: "Assessment ID isn't provided." });
-        const assessment = await Assessment.findById(assessmentId);
+        const assessment = await Assessment.findById(assessmentId)
+        .lean()
+        .cache({
+            ttl: REDIS_CONSTANTS.DURATION.ONE_DAY,
+            key: generate_cache_key({
+                assessment: assessmentId,
+                purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_DETAILS_CACHING
+            })
+        });
         if(!assessment) return res.status(400).json({ message: "Assessment ID is wrong." });
         if(assessment.startTime<(new Date())) return res.status(400).json({ message: "Can't register for this contest." });
         let teamID;
         const regFlag = await Registration.findOne({
             user: user._id,
             assessment: assessmentId
+        })
+        .lean()
+        .cache({
+            ttl: REDIS_CONSTANTS.DURATION.ONE_DAY,
+            key: generate_cache_key({
+                user: user._id,
+                assessment: assessmentId,
+                purpose: REDIS_CONSTANTS.PURPOSE.REGISTRATION_DETAILS_CACHING
+            })
         });
-        if(regFlag) return res.status(400).json({message: "User is already registered for the Hackathon."});
+        if(regFlag) return res.status(400).json({message: "User is already registered for the contest."});
         if(!existingTeamID){
-            const team = await Team.findOne({name: teamName, assessment:assessmentId});
+            const team = await Team.findOne({name: teamName, assessment:assessmentId})
+            .lean()
+            .cache({
+                ttl: REDIS_CONSTANTS.DURATION.ONE_DAY,
+                key: generate_cache_key({
+                    team:{name: teamName},
+                    assessment: assessmentId,
+                    purpose: REDIS_CONSTANTS.PURPOSE.TEAM_DETAILS_CACHING_BY_NAME
+                })
+            });
             if(!team){
                 const newTeam = new Team({
                     name: teamName,
                     leader: user._id,
                     assessment: assessmentId
                 });
-                if(!newTeam) return res.status(500).json({message: "Not able to create the team. Try using different name."});
                 await newTeam.save();
                 teamID = newTeam._id;
             }else{
                 return res.status(400).json({ message: "Team name already exists. Please choose a different name or join existing team." });
             }
         }else{
-            if(!mongoose.Types.ObjectId.isValid(existingTeamID)) return res.status(400).json({ message: "Team ID is wrong." });
-            const team = await Team.findById(existingTeamID);
+            if(!mongoose.Types.ObjectId.isValid(decrypt_object_id(existingTeamID))) return res.status(400).json({ message: "Team ID or Team name is wrong." });
+            existingTeamID = decrypt_object_id(existingTeamID);
+            const team = await Team.findById(existingTeamID)
+            .lean()
+            .cache({
+                ttl: REDIS_CONSTANTS.DURATION.ONE_DAY,
+                key: generate_cache_key({
+                    team: existingTeamID,
+                    purpose: REDIS_CONSTANTS.PURPOSE.TEAM_DETAILS_CACHING_BY_ID
+                })
+            });
             if(!team) return res.status(400).json({ message: "Team ID is wrong." });
-            const memeberCount = await Registration.find({team:existingTeamID});
+            if(teamName&&team.name !== teamName) return res.status(400).json({message: "Team ID or Team name is wrong."});
+            const memeberCount = await Registration.find({team:existingTeamID})
+            .lean()
+            .cache({
+                ttl: REDIS_CONSTANTS.DURATION.ONE_DAY,
+                key: generate_cache_key({
+                    team: existingTeamID,
+                    purpose: REDIS_CONSTANTS.PURPOSE.TEAM_MEMBERS_CACHING
+                })
+            });
             if(memeberCount.length >= assessment.maxTeamSize) return res.status(400).json({message: "Max team size reached already"});
             teamID = existingTeamID;
-            console.log("Bye");
         }
         const newRegistration = new Registration({
             assessment: assessmentId,
@@ -51,10 +198,12 @@ const register = async(req, res) => {
             user: user._id,
             isPending: false
         });
-        if(newRegistration) await newRegistration.save();
-        else return res.status(400).json({ message: "Invalid Attempt..." });
-        console.log(newRegistration.toJSON());
-        res.status(201).json(newRegistration.toJSON());
+        await newRegistration.save();
+        const payload = newRegistration.toJSON();
+        
+        payload.team = encrypt_object_id(payload.team.toString());
+
+        res.status(201).json(payload);
     }catch(error){
         console.log("Error in register controller.", error);
         return res.status(500).json({ message: "Internal Server Error" });
@@ -62,155 +211,11 @@ const register = async(req, res) => {
 };
 
 
-const getSelectedTeams = async (req, res) => {
-    try {
-        const { assessmentId } = req.body; // Or req.params if using URL parameters
-        if (!assessmentId) return res.status(400).json({ message: "Assessment ID is required" });
-        const assessmentRelated = await Assessment.findById(assessmentId);
-        const endTimeMs = assessmentRelated.endTime.getTime();
-        const currentTimeMs = new Date().getTime();
-        if((currentTimeMs)<(endTimeMs+3*24*60*60*1000)){
-            return res.status(400).json({message:"Result Isn't ready yet"});
-        }
-        const teams = await TeamScore.find({
-            score: { $gt: 40 }
-        });
-        if(!teams) throw new Error("teams array isn't formed");
-        res.status(200).json({ selectedTeams: teams }); // Corrected key to match original code
 
-    } catch (error) {
-        console.log("Error in getSelectedTeams controller.", error);
-        return res.status(500).json({ message: "Internal Server Error" });
-    }
-}
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
-const getTeamDetails = async(req, res) =>{
-    try{
-        const { assessmentId } = req.body;
-        const userId = req.user._id;
 
-        if (!assessmentId) {
-            return res.status(400).json({ message: "Assessment ID is required" });
-        }
 
-        const result = await Registration.aggregate([
-            // Step 1: Find the team of the current user for this assessment
-            {
-                $match: {
-                    user: userId,
-                    assessment: new mongoose.Types.ObjectId(assessmentId)
-                }
-            },
-            // Step 2: Extract teamId
-            {
-                $project: { team: 1 }
-            },
-            // Step 3: Lookup all registrations for this team
-            {
-                $lookup: {
-                    from: "registrations",
-                    localField: "team",
-                    foreignField: "team",
-                    as: "teamMembers"
-                }
-            },
-            { $unwind: "$teamMembers" },
-
-            // Step 4: Lookup corresponding user data for each member
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "teamMembers.user",
-                    foreignField: "_id",
-                    as: "userInfo"
-                }
-            },
-            { $unwind: "$userInfo" },
-
-            // Step 5: Return only needed fields
-            {
-                $project: {
-                    _id: "$userInfo._id",
-                    name: "$userInfo.name",
-                    email: "$userInfo.email"
-                }
-            }
-        ]);
-        if(!result) return res.status(400).json({message:"Result Not found"});
-        res.status(200).json({ teamMembers: result });
-    }catch(error){
-        console.log("Error in registration controller. ", error);
-        return res.status(400).json({message:"Internal Server Error"});
-    }
-}
-const isTeamSelected = async(req, res) => {
-    try{
-        const userId = req.user._id;
-        const {assessmentId} = req.body;
-        if(!assessmentId) return res.status(400).json({message:"Assessemnt Id isn't provided"});
-        const assessmentRelated = await Assessment.findById(assessmentId);
-        if(!assessmentRelated) return res.status(400).json({message:"No Assignment found"});
-        const endTimeMs = assessmentRelated.endTime.getTime();
-        const currentTimeMs = new Date().getTime();
-        if((currentTimeMs)<(endTimeMs+3*24*60*60*1000)){
-            return res.status(400).json({message:"Result Isn't ready yet"});
-        }
-        const result = await Registration.aggregate([
-        // Stage 1: Find the specific registration document for the user.
-        {
-            $match: {
-            user: new mongoose.Types.ObjectId(userId),
-            assessment: new mongoose.Types.ObjectId(assessmentId)
-            }
-        },
-
-        // Stage 2: Look up the corresponding document in the 'teamscores' collection.
-        {
-            $lookup: {
-            from: 'teamscores', // The collection name for the TeamScore model
-            let: {
-                teamId: '$team',       // 'team' ID from the Registration doc
-                assessId: '$assessment' // 'assessment' ID from the Registration doc
-            },
-            pipeline: [
-                {
-                $match: {
-                    $expr: {
-                    $and: [
-                        { $eq: ['$team', '$$teamId'] },         
-                        { $eq: ['$assessment', '$$assessId'] },  
-                        { $gte: ['$score', 40] }                
-                    ]
-                    }
-                }
-                },
-                { $limit: 1 }
-            ],
-            as: 'matchingScore'
-            }
-        },
-        {
-            $project: {
-            _id: 0,
-            hasHighEnoughScore: { $gt: [{ $size: '$matchingScore' }, 0] }
-            }
-        }
-        ]);
-        if(!result){
-            throw new Error("result isn't found");
-        }
-        if (result.length === 0) {
-        console.log('No registration found for user.');
-        return res.status(400).json({message:"User wasn't registered for this contest."});
-        }
-        res.status(200).json({isSelected:result[0].hasHighEnoughScore});
-    }catch(error){
-        console.log("Error in registration controller. ", error);
-        return res.status(400).json({message:"Internal Server Error"});
-    }
-    
-
-}
-module.exports = {register, getSelectedTeams, getTeamDetails, isTeamSelected};
+module.exports = {register};
 
 

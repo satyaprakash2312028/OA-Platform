@@ -12,14 +12,14 @@ const submissionSchema = new Schema({
 
   // Link to the Problem being solved
   problem: {
-    type: Schema.Types.ObjectId,
+    type: Number,
     ref: 'Problem', // Assuming you have a 'Problem' model
     required: [true, 'Submission must be for a specific problem'],
     index: true,
   },
 
-  assesment: {
-    type: Schema.Types.ObjectId,
+  assessment: {
+    type: Number,
     ref: 'Assessment',
     required: false
   },

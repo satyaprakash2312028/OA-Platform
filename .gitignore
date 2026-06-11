@@ -102,6 +102,8 @@ client-dist/
 
 # Local env overrides
 .local
+src/temp
+
 
 # Secrets and keys
 *.pem

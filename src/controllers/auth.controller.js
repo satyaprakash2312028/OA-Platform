@@ -2,14 +2,12 @@ const { generateToken} = require("../lib/utils.js");
 const {User} = require("../models/user.model.js");
 const bcrypt = require("bcryptjs");
 const {cloudinary} = require("../lib/cloudinary.js");
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 const signup = async (req, res) => {
     try {
         const { fullName, email, password } = req.body;
-        if (!fullName || !email || !password) return res.status(400).json({ message: "some fields are missing" });
-        if (password.length < 6) {
-            return res.status(400).json({ message: "Password is too short" });
-        }
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).lean();
         if (user && user.isVerified) return res.status(400).json({ message: "Email Already exists" });
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
@@ -44,62 +42,51 @@ const signup = async (req, res) => {
                 verificationAttemptsLeft: 10
             }
         });
-        if (newUser) {
-            await newUser.save();
-            generateToken(newUser._id, res);
-            res.status(201).json({
-                _id: newUser._id,
-                fullName: newUser.fullName,
-                email: newUser.email,
-                isVerified: newUser.isVerified,
-                profilePic: newUser.profilePic,
-                otp: {
-                    expiresAt: newUser.otp.expiresAt,
-                    nextResendAttempt: newUser.otp.nextResendAttempt,
-                    verificationAttemptsLeft: newUser.otp.verificationAttemptsLeft
-                },
-                createdAt: newUser.createdAt,
-                updatedAt: newUser.updatedAt
-            });
-        } else {
-            return res.status(400).json({ message: "User creation failed" });
-        }
+        await newUser.save();
+        generateToken(newUser._id.toString(), res);
+
+        const payload  = newUser.toJSON();
+        delete payload.password;
+        delete payload.otp;
+        
+        res.status(201).json(payload);
     } catch (error) {
         console.log("error in signup: ", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) return res.status(400).json({ message: "All fields are required for login" });
-        if (password.length < 6) return res.status(400).json({ message: "Password length must be greater than 5" });
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }).lean();
         if (!user || !(await bcrypt.compare(password, user.password))) return res.status(400).json({ message: "Invalid login credentials" });
-        generateToken(user._id, res);
-        req.user = user; // Set the user in the request object for caching in middleware
-        res.status(200).json({
-            _id: user._id,
-            fullName: user.fullName,
-            email,
-            profilePic: user.profilePic,
-            isVerified: user.isVerified,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        });
+        generateToken(user._id.toString(), res);
+        // console.log(user._id.toString());
+        
+        delete user.password;
+        delete user.otp;
+
+        res.status(200).json(user);
     } catch (error) {
         console.log("Error in login controller ", error);
         res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 const logout = async (req, res) => {
     try {
         res.cookie("jwt", "", {
             maxAge: 0,
-            path: '/',        // <-- Add this
-            secure: true,     // <-- Add this
-            sameSite: 'None', // <-- Add this
-            httpOnly: true    // <-- Good practice to include this too
+            path: '/',        
+            secure: true,     
+            sameSite: 'None', 
+            httpOnly: true    
         });
         res.status(200).json({ message: "Logged Out Successfully" });
     } catch (error) {
@@ -107,60 +94,54 @@ const logout = async (req, res) => {
         res.status(500).json({ message: "Internal Server Error" });
     }
 };
-const updateProfile = async (req, res) => {
-    try {
-        const { profilePic } = req.body;
-        const user = req.user;
-        if (!profilePic) return res.status(400).json({ message: "Profile pic isn't provided" });
-        if (!user.isVerified) return res.status(403).json({ message: "Verify the email first" });
-        const uploadResponse = await cloudinary.uploader.upload(profilePic);
-        const updatedUser = await User.findByIdAndUpdate(user._id, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password -otp");
-        res.status(200).json(updatedUser);
-    } catch (error) {
-        console.log("Error Occoured in updating profile pic ", error);
-        res.status(500).json({ message: "Internal Server Error" });
-    }
-};
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
+// const updateProfile = async (req, res) => {
+//     try {
+//         const { profilePic } = req.body;
+//         const user = req.user;
+//         if (!profilePic) return res.status(400).json({ message: "Profile pic isn't provided" });
+//         if (!user.isVerified) return res.status(403).json({ message: "Verify the email first" });
+//         const uploadResponse = await cloudinary.uploader.upload(profilePic);
+//         const updatedUser = await User.findByIdAndUpdate(user._id, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password -otp");
+//         res.status(200).json(updatedUser);
+//     } catch (error) {
+//         console.log("Error Occoured in updating profile pic ", error);
+//         res.status(500).json({ message: "Internal Server Error" });
+//     }
+// };
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 const checkAuth = async (req, res) => {
     try {
         const user = req.user;
-        res.status(200).json({
-            _id: user._id,
-            fullName: user.fullName,
-            email: user.email,
-            profilePic: user.profilePic,
-            isVerified: user.isVerified,
-            otp: {
-                expiresAt: user.otp.expiresAt,
-                resendAttemptsCount: user.otp.resendAttemptsCount,
-                nextResendAttempt: user.otp.nextResendAttempt,
-                verificationAttemptsLeft: user.otp.verificationAttemptsLeft
-            },
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        });
+        delete user.password;
+        delete user.otp;
+        res.status(200).json(user);
     } catch (error) {
         console.log("Error occoured while checking user authorization ", error);
         res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 const checkVerified = async (req, res) => {
    try {
         const user = req.user;
-        res.status(200).json({
-            _id: user._id,
-            fullName: user.fullName,
-            email: user.email,
-            profilePic: user.profilePic,
-            isVerified: user.isVerified,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        });
+        delete user.password;
+        delete user.otp;
+        res.status(200).json(user);
    } catch (error) {
         console.log("Error in checkVerified controller", error);
         res.status(500).json({message:"Internal Server Error"});
    }
 };
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
+
 // export const sendOtp = async (req, res) => {
 //     try {
 //         let user = req.user;
@@ -223,4 +204,4 @@ const checkVerified = async (req, res) => {
 //     }
 // };
 
-module.exports = {signup, login, logout, checkVerified, checkAuth, updateProfile};
+module.exports = {signup, login, logout, checkVerified, checkAuth};
