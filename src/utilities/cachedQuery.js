@@ -35,7 +35,12 @@ mongoose.Query.prototype.exec = async function () {
     const isLean = this._mongooseOptions && this._mongooseOptions.lean;
     if(this._shouldCache){  
         const key = this._key;
-        const cachedResult = await client.get(key);
+        let cachedResult = null;
+        try{
+            cachedResult = await client.get(key);
+        }catch(error){
+            console.log(error);
+        }
 
         if (cachedResult) {
             console.log(`[Redis] Cache Hit for: ${key}`);
@@ -59,9 +64,15 @@ mongoose.Query.prototype.exec = async function () {
         const queryField = JSON.stringify({
             query: this.getQuery(),
             collection: this.mongooseCollection.name,
-            options: this.getOptions()
+            options: this.getOptions(),
+            operation: this.op
         });
-        const cachedResult = await client.hget(hashKey, queryField);
+        let cachedResult = null;
+        try{
+            cachedResult = await client.hget(hashKey, queryField);
+        }catch(error){
+            console.log(error);
+        }
         if (cachedResult) {
             console.log(`[Redis] Cache Hit for: ${hashKey}`);
             const parsedDoc = JSON.parse(cachedResult);
