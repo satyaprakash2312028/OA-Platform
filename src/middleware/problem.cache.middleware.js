@@ -169,6 +169,7 @@ const cacheNewSubmission = async (req, res, next) => {
     const {code, language, assessmentID} = req.body;
     const {id: problemId} = req.params;
     const originalSend = res.send;
+    console.log('__________________________________________________________')
     res.send = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){

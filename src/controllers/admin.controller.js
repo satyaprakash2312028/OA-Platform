@@ -50,11 +50,11 @@ const login = async (req, res) => {
         req.user = user; // Set the user in the request object for caching in middleware
 
 
-        const payload = user.toJSON();
-        delete payload.password,
-        delete payload.otp,
+        user._id = user._id.toString();
+        delete user.password,
+        delete user.otp,
 
-        res.status(200).json(payload);
+        res.status(200).json(user);
     }catch(error){
         console.log("Error in login controller ", error);
         return res.status(500).json({ message: "Internal Server Error" });

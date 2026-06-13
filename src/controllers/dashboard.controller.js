@@ -116,6 +116,7 @@ const recentSubmissions = async(req, res) =>{
         );
         const submissions = await Submission.find({user:user._id})
         .sort({createdAt:-1})
+        .select("-code")
         .limit(25)
         .lean();
         res.locals.submissionList = [...submissions];

@@ -34,6 +34,7 @@ const cacheContestPages = async (req, res, next) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 // to be fixed, todo
 const cacheProblemSolvedCount = async (req, res, next) => {
+    
     const user = req.user;
     try{
         const cached_data = await redis_controllers.redis_user.get_problem_solved_count(user._id.toString());

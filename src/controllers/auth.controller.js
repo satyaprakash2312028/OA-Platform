@@ -69,6 +69,7 @@ const login = async (req, res) => {
         
         delete user.password;
         delete user.otp;
+        user._id = user._id.toString();
 
         res.status(200).json(user);
     } catch (error) {

@@ -36,6 +36,8 @@ const getCode = async(req, res) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const submitProblem = async(req, res) => {
+    console.log("----------------------------------------------- here -----------------------------------------------");
+    console.log(req.body);
     try{
         const user = req.user;
         const {code, language, assessmentID} = req.body;
@@ -95,16 +97,17 @@ const submitProblem = async(req, res) => {
             await newSubmission.save();
 
             const payload = submission.toJSON();
+            res.locals = {...payload, code: undefined};
+            const resPayload = {...payload};
+            
             payload._id = payload._id.toString();
             payload.user = payload.user.toString();
-            payload.problem = payload.problem.toString();
             payload.timeLimit = problem.timeLimit
             payload.memoryLimit = problem.memoryLimit
-            payload.assessment = payload?.assessment?.toString() || null;
+            payload.problem = payload.problem;
+            payload.assessment = payload?.assessment || null;
             payload.team = registration.team.toString();
 
-
-            const resPayload = submission.toJSON();
             delete resPayload.code;
 
             await sendSubmissionToQueue(payload);
@@ -123,18 +126,20 @@ const submitProblem = async(req, res) => {
             await submission.save();
 
             const payload = submission.toJSON();
+            const resPayload = {...payload};
+            res.locals = {...payload, code: undefined};
+            
             payload._id = payload._id.toString();
             payload.user = payload.user.toString();
-            payload.problem = payload.problem.toString();
             payload.timeLimit = problem.timeLimit
             payload.memoryLimit = problem.memoryLimit
-            payload.assessment = payload?.assessment?.toString() || null;
+            payload.problem = payload.problem;
+            payload.assessment = payload?.assessment || null;
 
-            const resPayload = submission.toJSON();
             delete resPayload.code;
 
+            console.log(payload, resPayload)
             await sendSubmissionToQueue(payload);
-            res.locals = payload;
             res.status(201).json(resPayload);
         }
     }catch(error){
@@ -351,6 +356,7 @@ const getSubmissions = async(req, res) => {
             })
         });
         res.locals = {submissions, totalDocuments: documentSize, pageNumber};
+        console.log(submissions);
         res.status(200).json({submissions, totalPages, pageNumber});
     }catch(error){
         console.log("Error in getSubmissions controller.", error);
@@ -361,7 +367,7 @@ const getSubmissions = async(req, res) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const allProblems = async(req, res)=>{
-
+    
     try{
         const user = req.user;
         let query = {};

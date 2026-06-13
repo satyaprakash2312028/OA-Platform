@@ -474,6 +474,7 @@ const redis_user = {
             purpose: REDIS_CONSTANTS.PURPOSE.SOLVED_PROBLEM_TO_BITMAP,
         });
         try{
+            
             const client_pipeline = client.pipeline();
             client_pipeline.exists(cache_key);
             client_pipeline.bitcount(cache_key);
@@ -482,8 +483,10 @@ const redis_user = {
             const final_data = {
                 problemSolved: pipeline_results[1][1]
             }
+            console.log(final_data);
             return final_data;
         }catch(error){
+            
             throw new Error("Error fetching cached problem solved count: " + error.message);
         }
     },

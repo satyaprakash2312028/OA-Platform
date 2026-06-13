@@ -92,6 +92,7 @@ const redis_problem = {
             client_pipeline.del(db_call_hash_key);
 
             const pipeline_results = await client_pipeline.exec();
+            
             return pipeline_results[0][1];
 
         }catch(error){

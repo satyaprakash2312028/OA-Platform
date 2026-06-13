@@ -7,6 +7,7 @@ const get_code_field_validation = (req, res, next) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const submit_problem_field_validation = (req, res, next) => {
+    console.log('__________________________________________________________');
     const user = req.user;
     const {code, language, assessmentID} = req.body;
     const {id: problemId} = req.params;

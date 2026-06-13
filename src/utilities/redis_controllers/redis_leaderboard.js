@@ -50,6 +50,7 @@ const redis_leaderboard = {
             client_pipeline.hget(assessment_hash_key, team_id);
 
             const pipeline_results = await client_pipeline.exec();
+            
 
             const received_data = pipeline_results[0][1];
 

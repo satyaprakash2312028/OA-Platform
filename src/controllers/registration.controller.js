@@ -116,7 +116,7 @@ const decrypt_object_id = (encryptedString) => {
 
 const register = async(req, res) => {
     try{
-        const {teamName, assessmentId, existingTeamID} = req.body;
+        let {teamName, assessmentId, existingTeamID} = req.body;
         const user = req.user;
         const assessment = await Assessment.findById(assessmentId)
         .lean()
@@ -167,8 +167,9 @@ const register = async(req, res) => {
                 return res.status(400).json({ message: "Team name already exists. Please choose a different name or join existing team." });
             }
         }else{
-            if(!mongoose.Types.ObjectId.isValid(decrypt_object_id(existingTeamID))) return res.status(400).json({ message: "Team ID or Team name is wrong." });
             existingTeamID = decrypt_object_id(existingTeamID);
+            if(!mongoose.Types.ObjectId.isValid(existingTeamID)) return res.status(400).json({ message: "Team ID or Team name is wrong." });
+            
             const team = await Team.findById(existingTeamID)
             .lean()
             .cache({
@@ -202,7 +203,8 @@ const register = async(req, res) => {
         const payload = newRegistration.toJSON();
         
         payload.team = encrypt_object_id(payload.team.toString());
-
+        console.log(payload);
+        console.log('<---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->');
         res.status(201).json(payload);
     }catch(error){
         console.log("Error in register controller.", error);
