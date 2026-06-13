@@ -84,7 +84,7 @@ const redis_assessment = {
                 end_index,
                 offset
             );
-
+            console.log(raw_data);
             if (!raw_data) return null;
 
             const parsed_data = [];
@@ -208,6 +208,7 @@ const redis_assessment = {
             });
 
             client_pipeline.hset(assessment_hash_key, start_time_field_key, new Date(assessment_mongoose_object.startTime).getTime());
+            client_pipeline.expire(assessment_hash_key, REDIS_CONSTANTS.DURATION.ONE_WEEK);
             const pipeline_results = await client_pipeline.exec();
 
             return true;

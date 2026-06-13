@@ -83,7 +83,7 @@ const logout = async(req, res) => {
 
 const uploadProblem = async(req, res) =>{ 
     try{
-        const { name, timeLimit, memoryLimit, htmlDescription, isPrivate, interactor, checker, assessment, problemId } = req.body;
+        const { name, timeLimit, memoryLimit, htmlDescription, isPrivate, interactor, checker, assessment, problemId, points } = req.body;
         const newProblem = new Problem({
             problemId,
             name,
@@ -94,6 +94,7 @@ const uploadProblem = async(req, res) =>{
             interactor,
             checker,
             assessment,
+            points
             
         });
         await newProblem.save();

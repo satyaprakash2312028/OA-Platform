@@ -4,7 +4,7 @@ const {REDIS_CONSTANTS} = require("./redis_constants.js");
 
 
 const redis_registration = {
-    post_registration_redis_interaction: async (user_id, assessment_id, team_name) => {
+    post_registration_redis_interaction: async (user_id, assessment_id, team_name, team_id) => {
 
         const registration_cache_key = generate_cache_key({
             user: user_id,
@@ -33,9 +33,11 @@ const redis_registration = {
             client_pipeline.del(registration_cache_key);
             client_pipeline.del(team_cache_key_by_name);
             client_pipeline.del(team_members_cache_key);
-            client_pipeline.setbit(cache_key, Number(assessment_id) - REDIS_CONSTANTS.CONTEST_ID_OFFSET, 1);
+            client_pipeline.setbit(bitmap_key, Number(assessment_id) - REDIS_CONSTANTS.CONTEST_ID_OFFSET, 1);
             const pipeline_results = await client_pipeline.exec();
-            return pipeline_results[0][1];
+            console.log('--------------------------------------------post reg--------------------------------------------')
+            console.log(pipeline_results);
+            return true;
         }catch(error){
             throw new Error("Error clearing registration cache: " + error.message);
         }

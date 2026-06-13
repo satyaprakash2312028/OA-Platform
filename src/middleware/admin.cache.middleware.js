@@ -6,8 +6,8 @@ const { redis_controllers } = require("../utilities/redis_controllers/import.js"
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const setAuthCache = async (req, res, next) => {
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
             const cacheKey = `auth:adminInfo:${req.user._id}`;
             client.setex(cacheKey, 3600, JSON.stringify(req.user)).catch((err) => {
@@ -23,8 +23,8 @@ const setAuthCache = async (req, res, next) => {
 
 const removeAuthCache = async (req, res, next) => {
     const user_id = req.user._id.toString();
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             
             redis_controllers.redis_user.remove_user_authentication_info(user_id).catch((err) => {
@@ -43,8 +43,8 @@ const activateAssessmentCache = async(req, res, next) =>{
     const problem_mongoose_object_list = res.locals.problems;
     const assessment_mongoose_object = res.locals.assessment;
 
-    const originalSend = res.send;
-    res.send = function(body){
+    const originalSend = res.json;
+    res.json = function(body){
         if(res.statusCode >= 200 && res.statusCode < 300){
             
             (async () => {

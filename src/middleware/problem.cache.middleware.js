@@ -2,6 +2,7 @@ const {client} = require("../lib/redis.js");
 const { Problem } = require("../models/problem.model.js");
 const { Registration } = require("../models/registration.model.js");
 const {Submission} = require("../models/submission.model.js");
+const { hydrate_problem } = require("../utilities/hydrater/hydrate_helper.js");
 const {redis_controllers} = require("../utilities/redis_controllers/import.js");
 
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
@@ -23,8 +24,8 @@ const cachedSubmissionPages = async (req, res, next) => {
         return next();
     }
 
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
 
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
@@ -54,8 +55,8 @@ const cachedAssessmentPages = async (req, res, next) => {
         console.error("Error fetching cached assessment info:", error);
         return next();
     }
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
 
@@ -90,8 +91,8 @@ const cachedProblemSet = async (req, res, next) => {
             console.error("Error fetching cached problem set:", error);
             return next();
         }
-        const originalSend = res.send;
-        res.send = function (body) {
+        const originalSend = res.json;
+        res.json = function (body) {
             originalSend.call(this, body);
             if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
                 redis_controllers.redis_problem.save_problems_to_private_set(res.locals.problems, res.locals.totalDocuments).catch((error) => {
@@ -112,8 +113,8 @@ const cachedProblemSet = async (req, res, next) => {
             console.error("Error fetching cached problem set:", error);
             return next();
         }
-        const originalSend = res.send;
-        res.send = function (body) {
+        const originalSend = res.json;
+        res.json = function (body) {
             originalSend.call(this, body);
             console.log(res.statusCode);
             if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
@@ -130,9 +131,9 @@ const cachedProblemSet = async (req, res, next) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const addProblemtoCache = async(req, res, next) => {
-    const originalSend = res.send;
+    const originalSend = res.json;
     const user = req.user;
-    res.send = function (body) {
+    res.json = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             if(req.isPrivate) redis_controllers.redis_problem.save_problem_to_private_set(res.locals).catch((error) => {
@@ -149,9 +150,10 @@ const addProblemtoCache = async(req, res, next) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const addAssessmenttoCache = async(req, res, next) => {
-    const originalSend = res.send;
+    const originalSend = res.json;
     const user = req.user;
-    res.send = function (body) {
+    res.json = function (body) {
+        
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             redis_controllers.redis_assessment.save_assessment_info_to_sorted_set(res.locals).catch((error) => {
@@ -168,9 +170,10 @@ const cacheNewSubmission = async (req, res, next) => {
     const user = req.user;
     const {code, language, assessmentID} = req.body;
     const {id: problemId} = req.params;
-    const originalSend = res.send;
-    console.log('__________________________________________________________')
-    res.send = function (body) {
+    const originalSend = res.json;
+    
+    console.log('____________________________papaya______________________________')
+    res.json = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
             redis_controllers.redis_user.save_user_submission(user._id.toString(), res.locals).catch((error) => {
@@ -186,26 +189,30 @@ const cacheNewSubmission = async (req, res, next) => {
 const hydrateWithSolvedStatus = async(req,res,next) => {
     const user = req.user;
     try{
-        const originalSend = res.send;
-        res.send = function(body) {
-            body = JSON.parse(body);
+        const originalSend = res.json;
+        res.json = function(body) {
+            // body = JSON.parse(body);
             if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
                 (async () => {
                     try {
                         const id_array = body.problems.map(p => p._id.toString());
-                        const result = await redis_controllers.redis_user.check_problems_in_solved_bitmap(req.user._id, id_array);
+                        let result = await redis_controllers.redis_user.check_problems_in_solved_bitmap(req.user._id.toString(), id_array);
+                        if(!result){
+                            await hydrate_problem(req.user._id.toString());
+                            result = await redis_controllers.redis_user.check_problems_in_solved_bitmap(req.user._id.toString(), id_array);
+                        }
                         for (let i = 0; i < body.problems.length; i++) {
                             body.problems[i].isSolved = (result[i] === 1); 
                         }
-                        originalSend.call(res, JSON.stringify(body));
+                        originalSend.call(res, (body));
                     } catch (error) {
                         console.error("Error while hydrating all problems body with is solved data: ", error);
-                        originalSend.call(res, JSON.stringify(body));
+                        originalSend.call(res, (body));
                     }
                 })();
                 return;
             }
-            originalSend.call(this, JSON.stringify(body));
+            originalSend.call(this, (body));
         }
         next();
     }catch(error){

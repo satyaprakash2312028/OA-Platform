@@ -66,5 +66,4 @@ assessmentSchema.pre('save', async function(next) {
 });
 
 const Assessment = model('Assessment', assessmentSchema);
-
 module.exports = { Assessment };

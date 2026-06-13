@@ -1,4 +1,5 @@
 const {client} = require("../lib/redis.js");
+const { hydrate_problem, hydrate_assessment } = require("../utilities/hydrater/hydrate_helper.js");
 const {redis_controllers} = require("../utilities/redis_controllers/import.js");
 
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
@@ -17,8 +18,8 @@ const cacheContestPages = async (req, res, next) => {
         console.error("Error fetching cached assessment info:", error);
         return next();
     }
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
 
@@ -45,8 +46,8 @@ const cacheProblemSolvedCount = async (req, res, next) => {
         console.error("Error fetching cached problem solved count:", error);
         return next();
     }
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             redis_controllers.redis_user.save_problem_to_solved_bitmap(user._id.toString(), res.locals.problemList).catch((error) => {
                 console.log("Error while caching solved problems: "+ error);
@@ -70,8 +71,8 @@ const cacheContestCount = async (req, res, next) => {
         console.error("Error fetching cached contest count:", error);
         return next();
     }
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             redis_controllers.redis_user.save_to_user_given_contest_bitmap(user._id.toString(), res.locals.assessmentList)
             .catch((error) => {
@@ -98,8 +99,8 @@ const cacheRecentSubmissions = async (req, res, next) => {
         return next();
     }
 
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             console.log(res.locals.totalDocuments);
@@ -123,8 +124,8 @@ const cacheLastAcceptedSubmission = async (req, res, next) => {
         console.error("Error fetching cached last accepted submission:", error);
         return next();
     }
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
             redis_controllers.redis_user.save_last_accepted_submission(user._id.toString(), body.submission).catch((error) => {
                 console.log("Error while caching last accepted submission: "+ error);
@@ -139,28 +140,32 @@ const cacheLastAcceptedSubmission = async (req, res, next) => {
 const hydrateWithRegisteredStatus = async(req,res,next) => {
     const user = req.user;
     try{
-        const originalSend = res.send;
-        res.send = function(body) {
-            body = JSON.parse(body);
+        const originalSend = res.json;
+        res.json = function(body) {
+            // body = JSON.parse(body);
             if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
                 (async () => {
                     try {
                         const id_array = body.assessments.map(p => p._id.toString());
 
-                        const result = await redis_controllers.redis_user.check_contests_in_given_bitmap(req.user._id.toString(), id_array);
-                        for (let i = 0; i < body.assessments.length; i++) {
-                            body.assessments[i].isSolved = (result[i] === 1); 
+                        let result = await redis_controllers.redis_user.check_contests_in_given_bitmap(req.user._id.toString(), id_array);
+                        if(!result){
+                            await hydrate_assessment(req.user._id.toString());
+                            result = await redis_controllers.redis_user.check_contests_in_given_bitmap(req.user._id.toString(), id_array);
                         }
-                        originalSend.call(res, JSON.stringify(body));
+                        for (let i = 0; i < body.assessments.length; i++) {
+                            body.assessments[i].isRegistered = (result[i] === 1); 
+                        }
+                        originalSend.call(res, (body));
 
                     } catch (error) {
                         console.error("Error while hydrating all contest body with is registered data: ", error);
-                        originalSend.call(res, JSON.stringify(body));
+                        originalSend.call(res, (body));
                     }
                 })();
                 return;
             }
-            originalSend.call(this, JSON.stringify(body));
+            originalSend.call(this, (body));
         }
         next();
     }catch(error){
@@ -172,9 +177,9 @@ const hydrateWithRegisteredStatus = async(req,res,next) => {
 
 const hydrateLeaderboad = async(req, res, next) => {
 
-    const originalSend = res.send;
-    res.send = function(body){
-        body = JSON.parse(body);
+    const originalSend = res.json;
+    res.json = function(body){
+        // body = JSON.parse(body);
         if((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304){
             const pageNumber = Number(req.params.pageNumber) || 1;
             const assessmentId = req.params.assessmentId;
@@ -186,15 +191,15 @@ const hydrateLeaderboad = async(req, res, next) => {
                         ...body,
                         ...data
                     }
-                    originalSend.call(res, JSON.stringify(body));
+                    originalSend.call(res, (body));
                 }catch(error){
                     console.error("Error while hydrating leaderboard ", error);
-                    originalSend.call(res, JSON.stringify(body));
+                    originalSend.call(res, (body));
                 }
             })();
             return;
         }
-        originalSend.call(this, JSON.stringify(body));
+        originalSend.call(this, (body));
     }
     next();
 }

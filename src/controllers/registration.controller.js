@@ -168,6 +168,7 @@ const register = async(req, res) => {
             }
         }else{
             existingTeamID = decrypt_object_id(existingTeamID);
+
             if(!mongoose.Types.ObjectId.isValid(existingTeamID)) return res.status(400).json({ message: "Team ID or Team name is wrong." });
             
             const team = await Team.findById(existingTeamID)
@@ -201,7 +202,7 @@ const register = async(req, res) => {
         });
         await newRegistration.save();
         const payload = newRegistration.toJSON();
-        
+        res.locals.team = payload;
         payload.team = encrypt_object_id(payload.team.toString());
         console.log(payload);
         console.log('<---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->');

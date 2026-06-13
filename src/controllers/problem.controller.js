@@ -36,7 +36,7 @@ const getCode = async(req, res) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const submitProblem = async(req, res) => {
-    console.log("----------------------------------------------- here -----------------------------------------------");
+    
     console.log(req.body);
     try{
         const user = req.user;
@@ -96,7 +96,7 @@ const submitProblem = async(req, res) => {
             });
             await newSubmission.save();
 
-            const payload = submission.toJSON();
+            const payload = newSubmission.toJSON();
             res.locals = {...payload, code: undefined};
             const resPayload = {...payload};
             
@@ -109,23 +109,22 @@ const submitProblem = async(req, res) => {
             payload.team = registration.team.toString();
 
             delete resPayload.code;
-
             await sendSubmissionToQueue(payload);
             res.status(201).json(resPayload);
         }else{
             if(problem.isPrivate){
                 return res.status(403).json({message: "Problem is private and can only be submitted as part of an assessment"});
             }
-            const submission = new Submission({
+            const newSubmission = new Submission({
                 user: user._id,
                 problem: problem._id,
                 code,
                 language,
                 status: "Pending",
             });
-            await submission.save();
+            await newSubmission.save();
 
-            const payload = submission.toJSON();
+            const payload = newSubmission.toJSON();
             const resPayload = {...payload};
             res.locals = {...payload, code: undefined};
             
@@ -137,8 +136,6 @@ const submitProblem = async(req, res) => {
             payload.assessment = payload?.assessment || null;
 
             delete resPayload.code;
-
-            console.log(payload, resPayload)
             await sendSubmissionToQueue(payload);
             res.status(201).json(resPayload);
         }
@@ -286,7 +283,7 @@ const getOAssessments = async(req, res) => {
             })
         });
         if(!assessment) return res.status(400).json({message: "No such Assessment found"});
-        if(Date.now() < assessment.startTime) return res.status(423).json({message: "Assessment hasn't started yet", startTime: assessment.startTime, endTime:  assessment.endTime});
+        if(new Date().getTime() < new Date(assessment.startTime).getTime()) return res.status(423).json({message: "Assessment hasn't started yet", startTime: assessment.startTime, endTime:  assessment.endTime});
         const registration = await Registration.findOne({assessment: assessmentId, user: user._id})
         .lean()
         .cache({
@@ -297,6 +294,7 @@ const getOAssessments = async(req, res) => {
                 purpose: REDIS_CONSTANTS.PURPOSE.REGISTRATION_DETAILS_CACHING
             })
         });
+        
         if(!registration) return res.status(403).json({message: "You are not registered for this assessment"});
         const problems = await Problem.find({assessment: assessmentId})
         .sort({createdAt:-1})

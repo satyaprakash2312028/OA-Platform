@@ -29,7 +29,8 @@ const upload_problem_field_validation = (req, res, next) => {
             interactor,
             checker,
             assessment,
-            problemId
+            problemId,
+            points
         }
     };
     const validation = createProblemSchema.safeParse(problemData);

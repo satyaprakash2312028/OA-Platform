@@ -185,19 +185,19 @@ const seedDB = async () => {
 
     // 1. Clear existing problems to keep a clean slate
 // 1. Clear existing problems to keep a clean slate
-    await Problem.deleteMany({});
-    console.log("Cleared existing problems...");
+    // await Problem.deleteMany({});
+    // console.log("Cleared existing problems...");
 
-    // 2. CRITICAL FIX: Delete any old counter, then EXPLICITLY create the starting counter
-    await Counter.deleteOne({ _id: 'problem_seq' });
-    await Counter.create({ _id: 'problem_seq', seq: 999999 }); // Force the starting number here!
-    console.log("Reset and initialized problem sequence counter to 999999...");
+    // // 2. CRITICAL FIX: Delete any old counter, then EXPLICITLY create the starting counter
+    await Counter.deleteOne({ _id: 'assessment_seq' });
+    await Counter.create({ _id: 'assessment_seq', seq: 999999 }); // Force the starting number here!
+    // console.log("Reset and initialized problem sequence counter to 999999...");
 
-    // 3. Save documents individually so the pre('save') hook triggers
-    const savePromises = seedProblems.map(prob => new Problem(prob).save());
-    await Promise.all(savePromises);
+    // // 3. Save documents individually so the pre('save') hook triggers
+    // const savePromises = seedProblems.map(prob => new Problem(prob).save());
+    // await Promise.all(savePromises);
 
-    console.log("Successfully seeded 10 problems with sequential IDs starting at 1000000!");
+    // console.log("Successfully seeded 10 problems with sequential IDs starting at 1000000!");
     mongoose.connection.close();
   } catch (err) {
     console.error("Error seeding database:", err);

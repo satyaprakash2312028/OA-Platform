@@ -46,14 +46,8 @@ try {
     client.on("connect", () => {
         console.log("Connected to Redis");
     });
-
-    // 3. Catch the initial error so it doesn't crash the Node process, 
-    // but the retryStrategy will handle the ongoing logs.
     client.on("error", (err) => {
-        // Optional: Keep this minimal to avoid log spam, 
-        // as the retryStrategy will print the attempt message.
         if (err.code === 'ECONNREFUSED') {
-            // Suppress the giant error stack for simple connection refusals
             console.error("Redis connection refused."); 
         } else {
             console.error("Redis error: ", err.message);
@@ -61,7 +55,7 @@ try {
     });
 
 } catch (error) {
-    // console.log(error);
+    console.log(error);
 }
 
 module.exports = { client };

@@ -72,9 +72,9 @@ const requiresVerified = (req, res, next) => {
 
 const hydrateUserBitmap = async(req, res, next) => {
 
-    const originalSend = res.send;
+    const originalSend = res.json;
     
-    res.send = function(body) {
+    res.json = function(body) {
         originalSend.call(this, body);
 
         if(res.statusCode >= 200 && res.statusCode < 300){

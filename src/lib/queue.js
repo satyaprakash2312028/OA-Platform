@@ -1,11 +1,31 @@
 // src/lib/queue.js
 // const amqp = require('amqplib');
 const dotenv = require('dotenv');
-const {client} = require('../lib/redis.js');
+const Redis = require("ioredis");
 const { Queue } = require('bullmq');
 const {REDIS_CONSTANTS} = require('../utilities/redis_controllers/redis_constants.js')
 dotenv.config();
+const client = new Redis(process.env.REDIS_URL, {
+    maxRetriesPerRequest: null, 
+    enableOfflineQueue: true,   
+    retryStrategy: (times) => {
+        if (times === 1 || times % 12 === 0) {
+            console.warn(`[Queue Redis] Connection offline. Retrying... (Attempt ${times})`);
+        }
+        return 60000; 
+    }
+});
 
+let isFirstError = true;
+
+client.on('error', (error) => {
+    console.error(error);
+});
+
+client.on('ready', () => {
+    isFirstError = true;
+    console.log("Redis reconnected");
+})
 // const CLOUDAMQP_URL = process.env.CLOUDAMQP_URL;
 // const QUEUE_NAME = 'submissions'; // Must match your worker's queue name
 

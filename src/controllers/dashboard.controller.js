@@ -35,6 +35,7 @@ const getContests = async (req, res) =>{
         const assessments = await Assessment.find({})
         .sort({ startTime: -1 })
         .skip(pageSize * (pageNumber - 1))
+        .select("-description")
         .limit(pageSize)
         .lean()
         .hashCache({
@@ -152,7 +153,7 @@ const lastAcceptedSubmission = async(req, res) => {
 const getLeaderboard = async(req, res) => {
     const user = req.user;
     const assessmentId = req.params.assessmentId;
-    const pageNumber =  req.params.pageNumber;
+    const pageNumber =  req.params.pageNumber || 1;
     if(pageNumber<1)  return res.status(400).json({message: 'Invalid page number'});
     try{
         const assessment = await Assessment.findOne({_id: assessmentId})
@@ -201,6 +202,9 @@ const getLeaderboard = async(req, res) => {
         res.status(400).json({message: 'Internal Server Error'});
     }
 }
+
+// <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->   
+
 module.exports = {
     getContests,
     problemSolved,

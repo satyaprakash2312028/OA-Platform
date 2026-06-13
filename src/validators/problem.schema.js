@@ -50,6 +50,14 @@ const createProblemSchema = z.object({
       .string()
       .nullable()
       .optional(),
+    
+    points: z
+    .number()
+    .int()
+    .min(500, "Difficulty can't be less than 500")
+    .max(2500, "Difficulty can't be more than 2500")
+    .optional()
+    
   }).strict(), // Rejects any unknown fields sent in the request body
 });
 

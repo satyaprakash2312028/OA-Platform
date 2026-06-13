@@ -408,6 +408,7 @@ const redis_user = {
                 client_pipeline.getbit(cache_key, Number(problem_id) - REDIS_CONSTANTS.PROBLEM_ID_OFFSET);
             }
             const pipeline_results = await client_pipeline.exec();
+            if(!pipeline_results[0][1]) return null;
             const parsed_data = pipeline_results.reduce((acc, item, index) => {
                 if(!index) return acc;
                 if(item[0]){
@@ -423,6 +424,7 @@ const redis_user = {
     },
 
     save_to_user_given_contest_bitmap : async(user_id, contest_id_list) => {
+        
         const cache_key = generate_cache_key({
             user: user_id,
             contest: REDIS_CONSTANTS.MANY_ENTITIES,
@@ -434,6 +436,8 @@ const redis_user = {
                 client_pipeline.setbit(cache_key, Number(contest_id) - REDIS_CONSTANTS.CONTEST_ID_OFFSET, 1);
             }
             const pipeline_results = await client_pipeline.exec();
+            console.log("-----------------------------------Done here-----------------------------------");
+            console.log(contest_id_list);
             return true;
         }catch(error){
             throw new Error("Error caching given contest: " + error.message);
@@ -452,7 +456,9 @@ const redis_user = {
             for(let contest_id of contest_id_list){
                 client_pipeline.getbit(cache_key, Number(contest_id) - REDIS_CONSTANTS.CONTEST_ID_OFFSET);
             }
+
             const pipeline_results = await client_pipeline.exec();
+            if(!pipeline_results[0][1]) return null;
             const parsed_data = pipeline_results.reduce((acc, item, index) => {
                 if(!index) return acc;
                 if(item[0]){

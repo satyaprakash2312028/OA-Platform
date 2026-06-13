@@ -2,8 +2,8 @@
 const { client } = require("../lib/redis.js");
 // tweaking res object to add a method for setting auth cache when status code is between 200 and 299
 const setAuthCache = async (req, res, next) => {
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
             const cacheKey = `auth:userInfo:${req.user._id}`;
             client.setex(cacheKey, 3600, JSON.stringify(req.user)).catch((err) => {
@@ -18,8 +18,8 @@ const setAuthCache = async (req, res, next) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const removeAuthCache = async (req, res, next) => {
-    const originalSend = res.send;
-    res.send = function (body) {
+    const originalSend = res.json;
+    res.json = function (body) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
             const cacheKey = `auth:userInfo:${req.user._id}`;
             console.log("Removing auth cache for userId:", req.user._id);
