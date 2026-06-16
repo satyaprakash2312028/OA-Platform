@@ -75,6 +75,17 @@ const redis_problem = {
             problem: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.PRIVATE_PROBLEM_PAGES_COUNT_CACHING
         });
+        
+        let assessment_cache = null;
+
+        if(problem_mongoose_object.assessment){
+            assessment_cache = generate_cache_key({
+                assessment: problem_mongoose_object.assessment,
+                purpose: REDIS_CONSTANTS.PURPOSE.PROBLEMS_OF_ASSESSMENT_CACHING
+            });
+            console.log(assessment_cache);
+        }
+
 
 
         try{
@@ -88,7 +99,8 @@ const redis_problem = {
             client_pipeline.expire(cache_key_lock_private, REDIS_CONSTANTS.DURATION.ONE_MONTH);
             
 
-
+            if(assessment_cache) {client_pipeline.del(assessment_cache);
+            }
             client_pipeline.del(db_call_hash_key);
 
             const pipeline_results = await client_pipeline.exec();
@@ -102,6 +114,7 @@ const redis_problem = {
     },
 
     save_problem_to_public_set: async (problem_mongoose_object) => {
+
         const cache_key_public = generate_cache_key({
             problem: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.SAVE_PROBLEM_TO_PUBLIC_SET,
@@ -134,6 +147,17 @@ const redis_problem = {
             purpose: REDIS_CONSTANTS.PURPOSE.PUBLIC_PROBLEM_PAGES_COUNT_CACHING
         });
 
+        let assessment_cache = null;
+
+        if(problem_mongoose_object.assessment){
+            console.log(problem_mongoose_object.assessment);
+            assessment_cache = generate_cache_key({
+                assessment: problem_mongoose_object.assessment,
+                purpose: REDIS_CONSTANTS.PURPOSE.PROBLEMS_OF_ASSESSMENT_CACHING
+            });
+            console.log(assessment_cache);
+        }
+
         try{
             const client_pipeline = client.pipeline();
             client_pipeline.zadd(cache_key_public, new Date(problem_mongoose_object.createdAt).getTime(), problem_header_extractor_to_string(problem_mongoose_object));
@@ -152,7 +176,7 @@ const redis_problem = {
 
             
             
-
+            if(assessment_cache) client_pipeline.del(assessment_cache);
             client_pipeline.del(db_call_hash_key);
 
             const pipeline_results = await client_pipeline.exec();
@@ -182,7 +206,7 @@ const redis_problem = {
         try{
             const client_pipeline = client.pipeline();
 
-
+            client_pipeline.del(cache_key);
             problem_mongoose_object_list.forEach((item) => {
                 client_pipeline.zadd(cache_key, new Date(item.createdAt).getTime(), problem_header_extractor_to_string(item));
             });
@@ -221,7 +245,7 @@ const redis_problem = {
         try{
             const client_pipeline = client.pipeline();
 
-
+            client_pipeline.del(cache_key);
             problem_mongoose_object_list.forEach((item) => {
                 client_pipeline.zadd(cache_key, new Date(item.createdAt).getTime(), problem_header_extractor_to_string(item));
             });
@@ -278,7 +302,8 @@ const redis_problem = {
                 end_index,
                 offset
             );
-
+            console.log('----------------------------------------------------------------------firse me hi hu----------------------------------------------------------------------');
+            console.log(raw_data);
             if (!raw_data) return null;
 
             const parsed_data = [];

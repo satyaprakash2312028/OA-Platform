@@ -8,7 +8,8 @@ const hydrate_problem = async(user_id) => {
             user: user_id,
             status: 'Accepted'
         }).lean();
-
+        console.log('------------------------------------------------------------------filler------------------------------------------------------------------')
+        console.log(result);
         await redis_controllers.redis_user.save_problem_to_solved_bitmap(user_id, result);
     }catch(error){
         console.log('Error while hydrating the problem bitmap'+error);

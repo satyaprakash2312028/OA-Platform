@@ -193,7 +193,9 @@ const getLeaderboard = async(req, res) => {
         const problemIdList = problems.map(item => item._id.toString());
 
         res.status(200).json({
-            problems: problemIdList
+            problems: problemIdList,
+            startTime: assessment.startTime,
+            endTime: assessment.endTime
         });
 
         

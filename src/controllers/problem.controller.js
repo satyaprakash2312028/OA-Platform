@@ -132,8 +132,8 @@ const submitProblem = async(req, res) => {
             payload.user = payload.user.toString();
             payload.timeLimit = problem.timeLimit
             payload.memoryLimit = problem.memoryLimit
-            payload.problem = payload.problem;
-            payload.assessment = payload?.assessment || null;
+            payload.problem = payload.problem.toString();
+            payload.assessment = payload?.assessment?.toString() || null;
 
             delete resPayload.code;
             await sendSubmissionToQueue(payload);
@@ -282,6 +282,8 @@ const getOAssessments = async(req, res) => {
                 purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_DETAILS_CACHING
             })
         });
+        console.log('problemproblemproblemproblemproblemproblemproblemproblemproblemproblem')
+        console.log(assessmentId)
         if(!assessment) return res.status(400).json({message: "No such Assessment found"});
         if(new Date().getTime() < new Date(assessment.startTime).getTime()) return res.status(423).json({message: "Assessment hasn't started yet", startTime: assessment.startTime, endTime:  assessment.endTime});
         const registration = await Registration.findOne({assessment: assessmentId, user: user._id})

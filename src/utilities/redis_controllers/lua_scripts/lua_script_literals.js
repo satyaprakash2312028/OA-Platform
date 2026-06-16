@@ -285,7 +285,7 @@ const script = {
                 table.insert(result, item_str)
                 
                 -- 3b. Fast regex to extract the problem ID (Change "problem_id" if needed)
-                local p_id_str = string.match(item_str, '"problem_id"%s*:%s*"?(%d+)"?')
+                local p_id_str = string.match(item_str, '"_id"%s*:%s*"?(%d+)"?')
                 
                 local has_solved = 0
                 if p_id_str then

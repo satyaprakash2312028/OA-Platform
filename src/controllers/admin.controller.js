@@ -102,8 +102,6 @@ const uploadProblem = async(req, res) =>{
 
         const payload = newProblem.toJSON();
         delete payload.htmlDescription;
-        delete payload.interactor;
-        delete payload.checker;
 
         res.locals = payload;
 

@@ -95,7 +95,7 @@ const hydrateHelper = async(user_id) => {
         if(!status){
             const result = await Submission.distinct('problem', {
                 user: user_id,
-                verdict: 'Accepted'
+                status: 'Accepted'
             });
             await redis_controllers.redis_user.save_problem_to_solved_bitmap(user_id, result);
         }

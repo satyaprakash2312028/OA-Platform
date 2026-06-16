@@ -52,7 +52,7 @@ const redis_user = {
     get_user_contest_count: async (user_id) => {
         const cache_key = generate_cache_key({
             user: user_id,
-            contest: REDIS_CONSTANTS.MANY_ENTITIES,
+            assessment: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.GIVEN_CONTEST_BITMAP
         });
         try{
@@ -63,7 +63,7 @@ const redis_user = {
             if(pipeline_results[0][1] === 0) return null;
 
             const final_data = {
-                count: pipeline_results[1][1]
+                count: Number(pipeline_results[1][1])-1
             }
             return final_data;
         }catch(error){
@@ -129,16 +129,14 @@ const redis_user = {
             client_pipeline.expire(hash_cache_key, REDIS_CONSTANTS.DURATION.THREE_DAYS);
             
 
-            if(submission_mongoose_object.verdict === 'Pending') {
+            if(submission_mongoose_object.status === 'Pending') {
                 client_pipeline.incr_if_exists(total_count_key);
             }
 
-            if(submission_mongoose_object.verdict === 'Accepted'){
+            if(submission_mongoose_object.status === 'Accepted'){
                 client_pipeline.setbit(bitmap_key, Number(submission_mongoose_object._id.toString()) - REDIS_CONSTANTS.PROBLEM_ID_OFFSET, 1);
                 client_pipeline.setex(last_acc_sub_key, REDIS_CONSTANTS.DURATION.THREE_DAYS, JSON.stringify(submission_mongoose_object));
             }
-
-            client_pipeline.del(db_call_hash_key);
 
 
             const pipeline_results = await client_pipeline.exec();
@@ -381,13 +379,11 @@ const redis_user = {
 
         try{
             const client_pipeline = client.pipeline();
+            client_pipeline.setbit(cache_key, 0, 1);
             for(let problem_id of problem_id_list){
                 client_pipeline.setbit(cache_key, Number(problem_id) - REDIS_CONSTANTS.PROBLEM_ID_OFFSET, 1);
             }
             const pipeline_results = await client_pipeline.exec();
-            for (let result of pipeline_results) {
-                if (result[0]) throw new Error("Redis pipeline write error: " + result[0].message);
-            }
             return true;
         }catch(error){
             throw new Error("Error caching solved problem: " + error.message);
@@ -427,11 +423,12 @@ const redis_user = {
         
         const cache_key = generate_cache_key({
             user: user_id,
-            contest: REDIS_CONSTANTS.MANY_ENTITIES,
+            assessment: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.GIVEN_CONTEST_BITMAP
         });
         try{
             const client_pipeline = client.pipeline();
+            client_pipeline.setbit(cache_key, 0, 1);
             for(let contest_id of contest_id_list){
                 client_pipeline.setbit(cache_key, Number(contest_id) - REDIS_CONSTANTS.CONTEST_ID_OFFSET, 1);
             }
@@ -447,7 +444,7 @@ const redis_user = {
     check_contests_in_given_bitmap : async(user_id, contest_id_list) => {
         const cache_key = generate_cache_key({
             user: user_id,
-            contest: REDIS_CONSTANTS.MANY_ENTITIES,
+            assessment: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.GIVEN_CONTEST_BITMAP
         });
         try{
@@ -487,9 +484,8 @@ const redis_user = {
             const pipeline_results = await client_pipeline.exec();
             if(pipeline_results[0][1] === 0) return null;
             const final_data = {
-                problemSolved: pipeline_results[1][1]
+                problemSolved: Number(pipeline_results[1][1]) - 1
             }
-            console.log(final_data);
             return final_data;
         }catch(error){
             
@@ -515,7 +511,7 @@ const redis_user = {
     get_contest_bitmap_existence_status : async(user_id) => {
         const bitmap_key = generate_cache_key({
             user: user_id,
-            contest: REDIS_CONSTANTS.MANY_ENTITIES,
+            assessment: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.GIVEN_CONTEST_BITMAP
         });
 

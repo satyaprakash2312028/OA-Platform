@@ -18,7 +18,7 @@ const login_field_validation = (req, res, next) => {
 }
 
 const upload_problem_field_validation = (req, res, next) => {
-    const { name, timeLimit, memoryLimit, htmlDescription, isPrivate, interactor, checker, assessment, zipFilePath, problemId } = req.body;
+    const { name, timeLimit, memoryLimit, htmlDescription, isPrivate, interactor, checker, assessment, zipFilePath, problemId, points } = req.body;
     const problemData = {
         body: {
             name,

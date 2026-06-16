@@ -27,7 +27,7 @@ const redis_assessment = {
 
         try{
             const client_pipeline = client.pipeline();
-            client_pipeline.zadd(cache_key, new Date(assessment_mongoose_object.createdAt).getTime(), JSON.stringify(assessment_mongoose_object));
+            client_pipeline.zadd(cache_key, new Date(assessment_mongoose_object.startTime).getTime(), JSON.stringify(assessment_mongoose_object));
             client_pipeline.zremrangebyrank(cache_key, 0, -1*REDIS_CONSTANTS.ASSESSMENT_SORTED_SET_MAX_SIZE - 1);
             client_pipeline.incr_if_exists(total_count_key);
 
@@ -61,7 +61,7 @@ const redis_assessment = {
 
         const cache_key_bitmap = generate_cache_key({
             user: user_id,
-            contest: REDIS_CONSTANTS.MANY_ENTITIES,
+            assessment: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.GIVEN_CONTEST_BITMAP
         });
 
@@ -130,7 +130,7 @@ const redis_assessment = {
         try{
             const client_pipeline = client.pipeline();
             assessment_mongoose_object_list.forEach(assessment_mongoose_object => {
-                client_pipeline.zadd(cache_key, new Date(assessment_mongoose_object.createdAt).getTime(), JSON.stringify(assessment_mongoose_object));
+                client_pipeline.zadd(cache_key, new Date(assessment_mongoose_object.startTime).getTime(), JSON.stringify(assessment_mongoose_object));
             });
             client_pipeline.zremrangebyrank(cache_key, 0, -1*REDIS_CONSTANTS.ASSESSMENT_SORTED_SET_MAX_SIZE - 1);
             client_pipeline.setex(cache_key_lock, REDIS_CONSTANTS.DURATION.ONE_MONTH, 'available');

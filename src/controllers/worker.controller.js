@@ -25,16 +25,16 @@ const getJudgeVedict = async(req, res) => {
         if(!submission) return res.status(404).json({message: "Submission not found"});
         
         if(submission.assessment&&(verdict==="Accepted")){
-            try{
-                redis_controllers.redis_leaderboard.update_team_score_in_leaderboard(req.body).catch((error)=>{
-                    console.log("Error while updating team score in redis leaderboad. " + error);
-                });
-                redis_controllers.redis_user.save_user_submission(user, submission).catch((error)=>{
-                    console.log("Error while saving user submission to sorted set. " + error);
-                });
-            }catch(error){
-                console.log('Error while updating leaderboard ');
-            }
+            redis_controllers.redis_leaderboard.update_team_score_in_leaderboard(req.body).catch((error)=>{
+                console.log("Error while updating team score in redis leaderboad. " + error);
+            });
+            redis_controllers.redis_user.save_user_submission(user, submission).catch((error)=>{
+                console.log("Error while saving user submission to sorted set. " + error);
+            });
+        }else{
+            redis_controllers.redis_user.save_user_submission(user, submission).catch((error)=>{
+                console.log("Error while saving user submission to sorted set. " + error);
+            });
         }
         res.status(200).json({message: "Judge vedict processed successfully"});
     }catch(error){
@@ -51,7 +51,7 @@ const getStatus = async(req, res) => {
         
         const userSocketId = getReceiverSocketId(user);
         if(userSocketId){
-            io.to(userSocketId).emit("statusUpdate", {submissionId, status, verdict});
+            io.to(userSocketId).emit("statusUpdate", {_id, status, verdict});
         }
         res.status(200).json({message: "Status update sent successfully"});
     }catch(error){

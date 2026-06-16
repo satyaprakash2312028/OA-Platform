@@ -25,12 +25,12 @@ const redis_leaderboard = {
             return [0];
         }
         const assessment_hash_key = generate_cache_key({
-            assessment: judge_verdict_payload_object.assessment,
+            assessment: assessment_id,
             purpose: REDIS_CONSTANTS.PURPOSE.ACTIVE_ASSESSMENT_DATA
         });
 
         const leaderboard_key = generate_cache_key({
-            assessment: judge_verdict_payload_object.assessment,
+            assessment: assessment_id,
             purpose: REDIS_CONSTANTS.PURPOSE.LEADERBOARD
         });
 
@@ -48,6 +48,7 @@ const redis_leaderboard = {
             );
             client_pipeline.zscore(leaderboard_key, team_id);
             client_pipeline.hget(assessment_hash_key, team_id);
+            client_pipeline.zrevrank(leaderboard_key, team_id);
 
             const pipeline_results = await client_pipeline.exec();
             
@@ -92,6 +93,7 @@ const redis_leaderboard = {
                 pageNumber: page_number,
                 self: {
                     score: pipeline_results[1][1] || 0,
+                    rank: (pipeline_results[2][1]===null)? -1:(pipeline_results[2][1]+1),
                     problems: user_problem_id_list
                 }
             }

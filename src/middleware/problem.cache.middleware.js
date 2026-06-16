@@ -136,7 +136,7 @@ const addProblemtoCache = async(req, res, next) => {
     res.json = function (body) {
         originalSend.call(this, body);
         if ((res.statusCode >= 200 && res.statusCode < 300)||res.statusCode === 304) {
-            if(req.isPrivate) redis_controllers.redis_problem.save_problem_to_private_set(res.locals).catch((error) => {
+            if(req.body.isPrivate) redis_controllers.redis_problem.save_problem_to_private_set(res.locals).catch((error) => {
                 console.log("Error while adding problem to cache: " + error);
             });
             else redis_controllers.redis_problem.save_problem_to_public_set(res.locals).catch((error) => {
@@ -201,6 +201,8 @@ const hydrateWithSolvedStatus = async(req,res,next) => {
                             await hydrate_problem(req.user._id.toString());
                             result = await redis_controllers.redis_user.check_problems_in_solved_bitmap(req.user._id.toString(), id_array);
                         }
+                        console.log('-----------------------------------------------------------------------pew pew-----------------------------------------------------------------------')
+                        console.log(result);
                         for (let i = 0; i < body.problems.length; i++) {
                             body.problems[i].isSolved = (result[i] === 1); 
                         }
