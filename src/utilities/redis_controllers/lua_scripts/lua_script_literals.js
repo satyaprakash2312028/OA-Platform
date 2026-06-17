@@ -43,6 +43,18 @@ const script = {
             end
         `
     },
+
+    setbit_if_exists:{
+        numberOfKeys: 1,
+        lua: `
+            if redis.call("EXISTS", KEYS[1]) == 1 then
+                return redis.call("SETBIT", KEYS[1], ARGV[1], 1)
+            else
+                return nil
+            end
+            
+        `
+    },
     add_submission_to_sorted_set: {
         numberOfKeys: 2,
         lua: `
@@ -193,6 +205,11 @@ const script = {
                 return false
             end
 
+            local bitmap_exists = redis.call('EXISTS', bitmap_key)
+            if bitmap_exists ~= 1 then
+                return false
+            end
+
             local items = redis.call('ZREVRANGE', zset_key, start_index, end_index)
             if #items == 0 then
                 return items
@@ -233,7 +250,7 @@ const script = {
             local end_index = tonumber(ARGV[2])
 
             
-            local items = redis.call('ZREVRANGE', KEYS[1], ARGV[1], ARGV[2], 'WITHSCORES')
+            local items = redis.call('ZREVRANGE', leaderboard_key, start_index, end_index, 'WITHSCORES')
 
             local result = {}
 
@@ -269,6 +286,12 @@ const script = {
             if redis.call('GET', lock_key) ~= 'available' then
                 return false
             end
+
+            local bitmap_exists = redis.call('EXISTS', bitmap_key)
+            if bitmap_exists ~= 1 then
+                return false
+            end
+
 
             -- 2. Fetch Page from Public Sorted Set using ZREVRANGE
             -- (Equiv to zrange(key, start, end, 'REV'))

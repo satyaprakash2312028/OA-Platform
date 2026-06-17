@@ -134,7 +134,7 @@ const redis_user = {
             }
 
             if(submission_mongoose_object.status === 'Accepted'){
-                client_pipeline.setbit(bitmap_key, Number(submission_mongoose_object._id.toString()) - REDIS_CONSTANTS.PROBLEM_ID_OFFSET, 1);
+                client_pipeline.setbit_if_exists(bitmap_key, Number(submission_mongoose_object.problem) - REDIS_CONSTANTS.PROBLEM_ID_OFFSET, 1);
                 client_pipeline.setex(last_acc_sub_key, REDIS_CONSTANTS.DURATION.THREE_DAYS, JSON.stringify(submission_mongoose_object));
             }
 

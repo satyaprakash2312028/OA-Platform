@@ -129,6 +129,7 @@ const redis_assessment = {
 
         try{
             const client_pipeline = client.pipeline();
+            client_pipeline.del(cache_key);
             assessment_mongoose_object_list.forEach(assessment_mongoose_object => {
                 client_pipeline.zadd(cache_key, new Date(assessment_mongoose_object.startTime).getTime(), JSON.stringify(assessment_mongoose_object));
             });
@@ -193,7 +194,7 @@ const redis_assessment = {
 
     make_assessment_active: async(problem_mongoose_object_list, assessment_mongoose_object) => {
         const assessment_hash_key = generate_cache_key({
-            assessment: assessment_mongoose_object._id.toString(),
+            assessment: assessment_mongoose_object._id,
             purpose: REDIS_CONSTANTS.PURPOSE.ACTIVE_ASSESSMENT_DATA
         });
         const start_time_field_key = generate_cache_key({

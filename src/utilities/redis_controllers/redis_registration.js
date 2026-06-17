@@ -23,7 +23,7 @@ const redis_registration = {
 
         const bitmap_key = generate_cache_key({
             user: user_id,
-            contest: REDIS_CONSTANTS.MANY_ENTITIES,
+            assessment: REDIS_CONSTANTS.MANY_ENTITIES,
             purpose: REDIS_CONSTANTS.PURPOSE.GIVEN_CONTEST_BITMAP
         });
 

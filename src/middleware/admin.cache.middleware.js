@@ -40,15 +40,14 @@ const removeAuthCache = async (req, res, next) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
 const activateAssessmentCache = async(req, res, next) =>{
-    const problem_mongoose_object_list = res.locals.problems;
-    const assessment_mongoose_object = res.locals.assessment;
 
     const originalSend = res.json;
     res.json = function(body){
         if(res.statusCode >= 200 && res.statusCode < 300){
             
             (async () => {
-                await redis_controllers.redis_assessment.make_assessment_active(problem_mongoose_object_list, assessment_mongoose_object);
+                console.log(res.locals);
+                await redis_controllers.redis_assessment.make_assessment_active(res.locals.problems, res.locals.assessment);
             })();
             
         }

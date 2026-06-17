@@ -14,6 +14,7 @@ const bcrypt = require("bcryptjs");
 
 const {createAssessmentSchema} = require("../validators/assessment.schema.js");
 const { REDIS_CONSTANTS } = require("../utilities/redis_controllers/redis_constants.js");
+const { generate_cache_key } = require("../utilities/redis_cache.js");
 const pageSize = 25;
 //<---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 // const rejudge = async(req, res) =>{
@@ -172,8 +173,9 @@ const makeAdmin = async(req, res) => {
 // <---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------->
 
     const activateAssessment = async(req, res) => {
+        console.log("Hi popo");
+        const {assessmentId} = req.body;
         try{
-            const {assessmentId} = req.body;
             const assessment = await Assessment.findOne({_id: assessmentId})
             .lean()
             .cache({
@@ -200,6 +202,8 @@ const makeAdmin = async(req, res) => {
 
             res.locals.problems = problems;
             res.locals.assessment = assessment;
+            console.log(assessment);
+            console.log(problems);
             res.status(200).json({
                 message: `Contest id ${assessmentId} has been activated.`
             })

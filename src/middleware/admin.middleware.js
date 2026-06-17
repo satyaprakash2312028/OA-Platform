@@ -73,7 +73,7 @@ const make_admin_field_validation = (req, res, next) => {
 
 const activate_assessment_field_validation = async(req, res, next) => {
     const {assessmentId} = req.body;
-    if(!mongoose.isObjectIdOrHexString(assessmentId)) return res.status(400).json({
+    if(!Number(assessmentId)) return res.status(400).json({
         message: 'Invalid Object Id.'
     })
     next();

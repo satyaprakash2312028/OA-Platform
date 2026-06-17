@@ -23,13 +23,11 @@ const getJudgeVedict = async(req, res) => {
             memoryUsed
         }, { new: true });
         if(!submission) return res.status(404).json({message: "Submission not found"});
-        
         if(submission.assessment&&(verdict==="Accepted")){
-            redis_controllers.redis_leaderboard.update_team_score_in_leaderboard(req.body).catch((error)=>{
+            console.log("----------------------------------------This is the one----------------------------------------")
+            console.log(req.body);
+            redis_controllers.redis_leaderboard.update_team_score_in_leaderboard_and_submission_status(req.body).catch((error)=>{
                 console.log("Error while updating team score in redis leaderboad. " + error);
-            });
-            redis_controllers.redis_user.save_user_submission(user, submission).catch((error)=>{
-                console.log("Error while saving user submission to sorted set. " + error);
             });
         }else{
             redis_controllers.redis_user.save_user_submission(user, submission).catch((error)=>{

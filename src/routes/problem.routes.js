@@ -9,7 +9,7 @@ const router = express.Router();
 router.post("/submitProblem/:id", protectRoute, requiresVerified, submit_problem_field_validation, cacheNewSubmission, submitProblem);
 // router.post("/submitMcq", protectRoute, requiresVerified, submitMcq);
 router.get("/submissions/page/:pageNumber", protectRoute, requiresVerified, cachedSubmissionPages, getSubmissions); 
-router.get("/assessment/:assessmentId", protectRoute, requiresVerified, getOAssessments);
+router.get("/assessment/:assessmentId", protectRoute, requiresVerified, hydrateWithSolvedStatus, getOAssessments);
 router.get("/getProblem/:id", protectRoute, requiresVerified, getProblem);
 router.get("/allProblems/page/:pageNumber", protectRoute, requiresVerified, cachedProblemSet, hydrateWithSolvedStatus, allProblems);
 router.get("/code/:id", protectRoute, requiresVerified, getCode);

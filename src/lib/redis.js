@@ -42,7 +42,7 @@ try {
     client.defineCommand('get_leaderboard', script.get_leaderboard_with_solved_problem_list);
     client.defineCommand('incr_if_exists', script.increment_if_exists);
     client.defineCommand('get_submission', script.get_submission_from_sorted_set);
-
+    client.defineCommand('setbit_if_exists', script.setbit_if_exists);
     client.on("connect", () => {
         console.log("Connected to Redis");
     });

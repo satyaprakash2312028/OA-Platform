@@ -104,8 +104,8 @@ const submitProblem = async(req, res) => {
             payload.user = payload.user.toString();
             payload.timeLimit = problem.timeLimit
             payload.memoryLimit = problem.memoryLimit
-            payload.problem = payload.problem;
-            payload.assessment = payload?.assessment || null;
+            payload.problem = payload.problem.toString();
+            payload.assessment = payload?.assessment?.toString() || null;
             payload.team = registration.team.toString();
 
             delete resPayload.code;
@@ -309,7 +309,7 @@ const getOAssessments = async(req, res) => {
                 purpose: REDIS_CONSTANTS.PURPOSE.PROBLEMS_OF_ASSESSMENT_CACHING
             })
         });
-
+        
         res.status(200).json({
             problems,
             startTime: assessment.startTime,
