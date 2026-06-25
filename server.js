@@ -18,7 +18,7 @@ require('./src/utilities/cachedQuery.js');
 dotenv.config();
 const PORT = process.env.PORT;
 app.use(express.json({limit: "50mb"}))
-app.use(express.urlencoded({extended: true, limit: "50mb"}));
+app.use(express.urlencoded({extended: true, limit: "1kb"}));
 app.use(cookieParser());
 app.use(cors({
     origin: ["https://oa-platform-frontend.vercel.app", "http://localhost:5174", "http://localhost:5173"],
