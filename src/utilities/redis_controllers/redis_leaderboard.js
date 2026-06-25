@@ -200,7 +200,10 @@ const redis_leaderboard = {
             purpose: REDIS_CONSTANTS.PURPOSE.LAST_ACCEPTED_SUBMISSION,
         });
         
-        
+        const submission_code_cache_key = generate_cache_key({
+            submission: judge_verdict_payload_object._id,
+            purpose: REDIS_CONSTANTS.PURPOSE.SUBMISSION_CODE_CACHING
+        })
         
         try{
             const client_pipeline = client.pipeline();
@@ -230,6 +233,7 @@ const redis_leaderboard = {
                 judge_verdict_payload_object._id.toString(),
                 JSON.stringify(judge_verdict_payload_object)
             );
+            client_pipeline.set(submission_code_cache_key, JSON.stringify(judge_verdict_payload_object));
             client_pipeline.expire(cache_key_lock, REDIS_CONSTANTS.DURATION.THREE_DAYS);
             client_pipeline.expire(zset_cache_key, REDIS_CONSTANTS.DURATION.THREE_DAYS);
             client_pipeline.expire(hash_cache_key, REDIS_CONSTANTS.DURATION.THREE_DAYS);

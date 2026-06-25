@@ -95,7 +95,6 @@ const redis_user = {
             purpose: REDIS_CONSTANTS.PURPOSE.USER_SUBMISSION_PAGES_CACHING
         });
 
-
         const total_count_key = generate_cache_key({
             user: user_id,
             purpose: REDIS_CONSTANTS.PURPOSE.USER_SUBMISSION_PAGES_COUNT_CACHING

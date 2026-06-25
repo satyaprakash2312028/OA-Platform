@@ -21,7 +21,8 @@ const getJudgeVedict = async(req, res) => {
             status: verdict,
             executionTime,
             memoryUsed
-        }, { new: true });
+        }, { new: true })
+        .lean();
         if(!submission) return res.status(404).json({message: "Submission not found"});
         if(submission.assessment&&(verdict==="Accepted")){
             console.log("----------------------------------------This is the one----------------------------------------")

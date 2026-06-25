@@ -27,6 +27,7 @@ const getCode = async(req, res) => {
             })
         });
         if(!submission) return res.status(404).json({message: "Submission not found"});
+        console.log(submission);
         res.status(200).json(submission);
     }catch(error){
         console.log("Error in getCode controller.", error);
@@ -95,7 +96,7 @@ const submitProblem = async(req, res) => {
                 status: "Pending"
             });
             await newSubmission.save();
-
+            console.log(newSubmission);
             const payload = newSubmission.toJSON();
             res.locals = {...payload, code: undefined};
             const resPayload = {...payload};
@@ -123,7 +124,7 @@ const submitProblem = async(req, res) => {
                 status: "Pending",
             });
             await newSubmission.save();
-
+            console.log(newSubmission);
             const payload = newSubmission.toJSON();
             const resPayload = {...payload};
             res.locals = {...payload, code: undefined};
