@@ -21,7 +21,7 @@ app.use(express.json({limit: "50mb"}))
 app.use(express.urlencoded({extended: true, limit: "50mb"}));
 app.use(cookieParser());
 app.use(cors({
-    origin: ["https://oa-platform-frontend.vercel.app", "http://localhost:5174"],
+    origin: ["https://oa-platform-frontend.vercel.app", "http://localhost:5174", "http://localhost:5173"],
     credentials: true
 }));
 // --- ADD THESE LINES ---
