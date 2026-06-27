@@ -8,6 +8,7 @@ const REDIS_CONSTANTS = {
     CONTEST_ID_OFFSET: 1000000,
     RECENT_SUBMISSION_COUNT: 10,
     PURPOSE:{
+        DATABASE_LOCK: "DATABASE_LOCK",
         AUTHENTICATION: "authentication",
         ADD_SUBMISSION: "add_submission",
         CONTEST_COUNT: "contest_count",
@@ -49,6 +50,7 @@ const REDIS_CONSTANTS = {
 
     },
     DURATION:{
+        FIVE_SECONDS: 5,
         FIVE_MINUTES: 300,
         TEN_MINUTES: 600,
         THIRTY_MINUTES: 1800,
