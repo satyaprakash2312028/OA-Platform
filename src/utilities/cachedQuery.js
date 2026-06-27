@@ -5,7 +5,7 @@ const { REDIS_CONSTANTS } = require('./redis_controllers/redis_constants.js');
 
 const originalExec = mongoose.Query.prototype.exec;
 
-mongoose.Query.prototype.locked = function (options = {}) {
+mongoose.Query.prototype.lock = function (options = {}) {
     this._useLock = true;
     return this; 
 };
