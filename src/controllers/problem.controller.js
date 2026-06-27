@@ -53,7 +53,8 @@ const submitProblem = async(req, res) => {
                     purpose: REDIS_CONSTANTS.PURPOSE.PROBLEM_DETAILS_CACHING
                 })
             }
-        );
+        )
+        .lock();
 
         if(!problem) return res.status(404).json({message: "Problem not found"});
 
@@ -66,7 +67,8 @@ const submitProblem = async(req, res) => {
                     assessment: assessmentID,
                     purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_DETAILS_CACHING
                 })
-            });
+            })
+            .lock();
             if(!assessment)                                     return res.status(404).json({message: "Assessment not found"});
             if(!problem.isPrivate)                              return res.status(400).json({message: "Problem is not part of any assessment"});
             if(assessmentID!= problem.assessment.toString())    return res.status(400).json({message: "Problem is not part of the specified assessment"});
@@ -230,7 +232,8 @@ const getProblem = async (req, res) => {
                     problem: problemId,
                     purpose: REDIS_CONSTANTS.PURPOSE.PROBLEM_DETAILS_CACHING
                 }),
-        });
+        })
+        .lock();
         if(!problem) return res.status(400).json({message: "Problem isn't available"});
 
         return res.status(200).json({
@@ -282,7 +285,8 @@ const getOAssessments = async(req, res) => {
                 assessment: assessmentId,
                 purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_DETAILS_CACHING
             })
-        });
+        })
+        .lock();
         console.log('problemproblemproblemproblemproblemproblemproblemproblemproblemproblem')
         console.log(assessmentId)
         if(!assessment) return res.status(400).json({message: "No such Assessment found"});
@@ -309,7 +313,8 @@ const getOAssessments = async(req, res) => {
                 assessment: assessmentId,
                 purpose: REDIS_CONSTANTS.PURPOSE.PROBLEMS_OF_ASSESSMENT_CACHING
             })
-        });
+        })
+        .lock();
         
         res.status(200).json({
             problems,
@@ -382,7 +387,8 @@ const allProblems = async(req, res)=>{
                 problem: REDIS_CONSTANTS.MANY_ENTITIES,
                 purpose: user.isAdmin?REDIS_CONSTANTS.PURPOSE.PRIVATE_PROBLEM_PAGES_COUNT_CACHING:REDIS_CONSTANTS.PURPOSE.PUBLIC_PROBLEM_PAGES_COUNT_CACHING
             })
-        });
+        })
+        .lock();
         console.log(documentSize)
         const totalPages = Math.ceil(documentSize / pageSize);
         pageNumber = Math.min(pageNumber, totalPages);
@@ -399,7 +405,8 @@ const allProblems = async(req, res)=>{
                 problem: REDIS_CONSTANTS.MANY_ENTITIES,
                 purpose: (user.isAdmin)?REDIS_CONSTANTS.PURPOSE.PRIVATE_PROBLEM_PAGES_CACHING:REDIS_CONSTANTS.PURPOSE.PUBLIC_PROBLEM_PAGES_CACHING,
              }),
-        });
+        })
+        .lock();
         res.locals = {
             problems, 
             totalDocuments: documentSize, 

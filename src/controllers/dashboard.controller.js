@@ -28,7 +28,8 @@ const getContests = async (req, res) =>{
                 assessment: REDIS_CONSTANTS.MANY_ENTITIES,
                 purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_PAGES_COUNT_CACHING
             })
-        });
+        })
+        .lock();
         const totalPages = Math.ceil(documentSize / pageSize);
         pageNumber = Math.min(pageNumber, totalPages);
         pageNumber = Math.max(pageNumber, 1);
@@ -44,7 +45,8 @@ const getContests = async (req, res) =>{
                 assessment: REDIS_CONSTANTS.MANY_ENTITIES,
                 purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_PAGES_CACHING
             })
-        });
+        })
+        .lock();
         res.locals = {
             assessments,
             totalDocuments: documentSize,
@@ -164,7 +166,8 @@ const getLeaderboard = async(req, res) => {
                 assessment: assessmentId,
                 purpose: REDIS_CONSTANTS.PURPOSE.ASSESSMENT_DETAILS_CACHING
             })
-        });
+        })
+        .lock();
         if(!assessment) return res.status(400).json({message: 'Invalid assessment id'});
 
         const registration = await Registration.findOne({assessment: assessmentId, user: user._id})
@@ -188,7 +191,8 @@ const getLeaderboard = async(req, res) => {
                 assessment: assessmentId,
                 purpose: REDIS_CONSTANTS.PURPOSE.PROBLEMS_OF_ASSESSMENT_CACHING
             })
-        });
+        })
+        .lock();
         res.locals.registration = registration;
         const problemIdList = problems.map(item => item._id.toString());
 
